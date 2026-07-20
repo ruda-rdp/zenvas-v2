@@ -1,215 +1,127 @@
-# GLOSSARY.md
+# Glossary - Zenvas v2
 
-Status: Locked v1.0
-
-Purpose: Every important term used across Zenvas documentation is defined
-here, once. Other documents use these terms — they do not redefine them.
-Each entry links back to its home document for full context.
-
----
-
-### ADR (Architecture Decision Record)
-A record of a significant technical decision and its reasoning. See
-ADR-0001-odoo-integration.md for the first example.
-
-### AI Context
-The accumulated Knowledge Entries (SOP, Style Guides, Client Preferences,
-Templates) as future raw material for AI-assisted features. Not yet scoped.
-→ KNOWLEDGE_ENGINE.md
-
-### Apply / Assign
-The two ways a User enters a Task/Stage on the Board: Apply (User requests
-it) or Assign (Owner/Manager assigns it directly). Both coexist.
-→ HUMAN_CAPITAL_OS.md
-
-### Board
-An aggregated, cross-Brand list of open Task/Stage opportunities, scoped to
-a User's current Brand Access. Not a per-Brand board.
-→ HUMAN_CAPITAL_OS.md
+## Core Terms
 
 ### Brand
-An independent creative business identity (e.g. EatPrayEdit, Balistory,
-KreatifProduction, Personal) operating under one Organization. Owns its own
-identity, pricing, services, and customer experience.
-→ BUSINESS_OS.md ("Brand First"), CONTEXT.md
+The primary entity in Zenvas. A brand represents a business identity with its own:
+- Name and branding (logo, colors)
+- Clients and projects
+- Team members
+- Workflows
 
-### Brand Access
-A simple grant connecting a User to a Brand, modeled on Odoo's multi-company
-pattern. Does not create a new identity — only changes what a User can see.
-→ CONTEXT.md, HUMAN_CAPITAL_OS.md
+A brand is **universal** - it can serve clients (agency/studio) or be personal (freelancer/portfolio).
 
-### Clock-In / Clock-Out
-Mandatory time-tracking for Inhouse Users, feeding both Subscription
-capacity verification and payroll hour input.
-→ HUMAN_CAPITAL_OS.md
+**Example**: "EPE Studio", "Balistory Photography", "John Doe Portfolio"
 
-### Client
-An external party who orders from a Brand. Has a Client Account, is the
-subject of the Financial Confidentiality and Client Relationship Ownership
-principles.
-→ BUSINESS_OS.md, CONTEXT.md
+### Organization (Internal)
+Internal container that holds brands and users. Users belong to an organization, and can access one or more brands within it.
 
-### Client Portal
-The Client's home inside a Brand — never inside Zenvas or Odoo's own
-interface.
-→ BUSINESS_OS.md
-
-### Client Relationship Ownership Principle
-The Client relationship belongs to the Brand, never to an individual person.
-Editors never have direct Client contact; Owner/Manager/Producer do.
-→ CONTEXT.md, HUMAN_CAPITAL_OS.md (Roles & Permissions)
-
-### Delivery
-The completed output of a Project, sent to the Client for approval. Approval
-triggers the Final Invoice (Business OS) and Payout crediting (Human Capital
-OS).
-→ PROJECT_OS.md, BUSINESS_OS.md
-
-### Employment Type
-An attribute on User: Freelance or Inhouse. Determines the compensation
-rule. Independent from Role.
-→ CONTEXT.md, HUMAN_CAPITAL_OS.md
-
-### Financial Confidentiality Principle
-Order/Invoice values are confidential to Owner/Manager. Editors only ever
-see their own Payout value, never the original Order value. A hard,
-access-control-level rule, not a UI convention.
-→ CONTEXT.md, BUSINESS_OS.md
-
-### Invoice
-A billing document tied to an Order — an Order can have more than one (e.g.
-DP, Final). Managed in Odoo per ADR-0001; Zenvas orchestrates its status.
-→ BUSINESS_OS.md, ADR-0001
-
-### Knowledge Entry
-A documented piece of organizational knowledge: SOP/Style Guide,
-Template/Asset, Client Preference, or Lessons Learned. Attached at the same
-hierarchy level as the object it describes (Service, Client, Project).
-→ KNOWLEDGE_ENGINE.md
-
-### Knowledge Surfacing
-The mechanism by which relevant Knowledge Entries appear automatically
-inside a Brief, rather than requiring a separate library search.
-→ KNOWLEDGE_ENGINE.md
-
-### Level
-A rank (e.g. Junior/Senior Editor) unlocked by accumulated Points. Grants
-Board priority and reputation visibility. Subject to Point System Stability.
-→ HUMAN_CAPITAL_OS.md
-
-### Lessons Learned
-An optional, lightweight note captured after a Project's Delivery is
-approved, which can be promoted into an SOP update.
-→ KNOWLEDGE_ENGINE.md
-
-### Mission Control
-The operational awareness dashboard — answers "what needs attention,"
-"where is the bottleneck," without performing work itself. Surfaces stale
-Tasks automatically.
-→ BUSINESS_OS.md, PROJECT_OS.md
-
-### Order
-The formal client commitment behind a Project. States: Draft → Confirmed
-(DP received) → In Progress → Completed. A Project can only be created once
-an Order is Confirmed (except Personal Brand).
-→ BUSINESS_OS.md → Customer Journey & Order Lifecycle
-
-### Organization
-The top-level entity. Currently one: "Ruda." Owns one or more Brands.
-Multi-Organization is the Stage 2 future vision.
-→ CONTEXT.md, FOUNDATION.md
-
-### Payout
-The internal compensation value paid to an Editor/Freelancer for a
-Task/Stage, derived from — but never equal to or visible alongside — the
-Order value. Allocated when a Task/Stage is posted to the Board; credited to
-the Wallet only after Client approves final Delivery.
-→ BUSINESS_OS.md, HUMAN_CAPITAL_OS.md
-
-### Point
-An automatically-earned (or automatically/manually-deducted) unit of
-performance/reputation, separate from Payout. Redeemable for money only
-during an Owner-defined redemption window. Governed by Point System
-Stability.
-→ HUMAN_CAPITAL_OS.md
-
-### Point System Stability
-Governance rule: once Point/Level rules are live, changes must never
-retroactively devalue what was already earned. Changes apply forward only.
-→ HUMAN_CAPITAL_OS.md
-
-### Producer
-A Role that coordinates production and multi-editor Projects. Sees the
-internal Payout Budget pool but not the raw Order value. May contact Clients
-directly.
-→ HUMAN_CAPITAL_OS.md → Roles & Permissions
-
-### Project
-A living workspace for creative execution, created from a Confirmed Order.
-Structured into Stages and Tasks per its Service Template.
-→ PROJECT_OS.md
-
-### Proposal / Quotation
-An optional pre-Order document for custom pricing, used when a Client isn't
-ordering from a fixed price list.
-→ BUSINESS_OS.md
-
-### Resource Library
-The growing collection of Talent and Location profiles, owned per-Brand by
-default (toggle-shareable across Brands, like Brand Access).
-→ KNOWLEDGE_ENGINE.md
-
-### Role
-A functional attribute on User: Owner, Manager, Producer, or Editor.
-Determines what a User can see and do — independent of Employment Type.
-→ HUMAN_CAPITAL_OS.md → Roles & Permissions
-
-### Service (Service Catalog)
-What a Brand offers. The starting point of the business, per Product
-Principle #1 (Service First). Every Order and Project traces back to a
-Service.
-→ BUSINESS_OS.md, PRODUCT_PRINCIPLES.md
-
-### Service Template
-Defines a Service's Intake Form, Stage list, and Task list (with expected
-durations). The concrete mechanism behind "Framework, Not Workflow" — every
-Service can differ, even within one Brand.
-→ PROJECT_OS.md
-
-### Stage
-A sequential phase within a Project (e.g. "Editing"), defined by the
-Project's Service Template. The level shown to Clients by default.
-→ PROJECT_OS.md
-
-### Stale Task Detection
-Automatic surfacing of a Task that remains incomplete past its expected
-duration, shown in Mission Control as "Needs Attention." Not a manually
-declared "Blocked" status.
-→ PROJECT_OS.md
-
-### Subscription
-A recurring **request-slot quota** commercial model (e.g. "4 requests/month,
-2 active at a time") for a flat fee — distinct from an Order (pays for one
-deliverable). Revised from an earlier hour-capacity model per REFERENCES.md's
-Wayfront deep-dive. EPE Studio's primary client-retention/growth mechanism.
-Billing mechanics deferred.
-→ BUSINESS_OS.md
-
-### Task
-A granular, checkable unit of work inside a Stage, with its own assignee,
-timestamps, and expected duration. Can be nested up to **3 levels deep** (root + 2 nesting) as
-Subtasks (root Task → Subtask → Sub-subtask), each level
-inheriting assignee/category from its parent unless overridden. Optionally
-carries a Task Category (PRE_PRODUCTION / PRODUCTION / POST_PRODUCTION) for
-workload reporting.
-→ PROJECT_OS.md, DATA-MODELS.md
+**Note**: Organization is primarily internal. Users interact with Brands.
 
 ### User
-A single, brand-agnostic identity. One person, one User — regardless of how
-many Brands they access or their Employment Type/Role.
-→ CONTEXT.md, HUMAN_CAPITAL_OS.md
+A person with access to Zenvas. Users have:
+- Personal info (name, email)
+- Role within the organization
+- Access to specific brands
 
-### Wallet
-An Editor/Freelancer's accumulated Payout balance. MVP: manual withdrawal
-request → manual bank transfer → balance cleared.
-→ HUMAN_CAPITAL_OS.md
+### Role
+User's permission level within the organization:
+
+| Role | Description |
+|------|-------------|
+| **OWNER** | Full access, manages org, can invite team |
+| **MANAGER** | Manages projects and team |
+| **PRODUCER** | Oversees production and delivery |
+| **EDITOR** | Assigned to tasks, executes work |
+
+## Project Terms
+
+### Project
+A container for stages and tasks representing a piece of work.
+
+**Types**:
+- **Client Project**: Created from an Order
+- **Internal Project**: Created directly without client
+
+### Stage
+A phase within a project (e.g., Planning, Execution, Delivery).
+
+### Task
+A unit of work within a stage. Can have:
+- Assignee (team member)
+- Status (Open, In Progress, Complete)
+- Duration
+- Payout amount
+- Client visibility setting
+
+### Subtask
+A child task under a parent task. Maximum 4 levels deep.
+
+## Client Terms
+
+### Lead
+A potential client captured from various sources:
+- Website form
+- Social media (DM)
+- Referral
+- Direct contact
+
+### Client
+An organization/business that orders projects.
+
+### Client Contact
+An individual at a client company who can:
+- Access the Client Portal
+- View project progress
+- Approve deliveries
+
+### Order
+A confirmed engagement with a client:
+- Links to a Service
+- Contains intake form data
+- Triggers project creation
+
+## Service Terms
+
+### Service
+A defined offering with:
+- Name (e.g., "Real Estate Video")
+- Fixed price
+- Intake form schema (questions for client)
+- Stage template (default project structure)
+
+## Communication Terms
+
+### Notification
+In-app notification for users. Types:
+- Task assigned/completed
+- Project update
+- Delivery ready
+- Lead received
+- Order status change
+
+### Activity Log
+Immutable record of system events for audit trail.
+
+## Invite System
+
+### Invite Code
+A unique code generated by OWNER to invite team members.
+
+**Format**: `{ROLE}_{random_string}` (e.g., `EDITOR_abc123`)
+
+**Usage**:
+1. OWNER generates code for specific role
+2. Share link: `/register?code=EDITOR_abc123`
+3. User registers → joins organization with specified role
+
+## Technical Terms
+
+### Brand Access
+Permission linking a user to a brand. Controls which brands a user can see and work on.
+
+### Intake Form
+Form that clients fill when placing an order. Defined by Service.intakeFormSchema.
+
+### Client Portal
+Public-facing interface where clients view project progress and approve deliveries.

@@ -18,6 +18,7 @@ model Organization {
   name      String
   brands    Brand[]
   users     User[]
+  inviteCodes InviteCode[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -306,7 +307,23 @@ enum Role {
   OWNER
   MANAGER
   EDITOR
-  // PRODUCER intentionally omitted — Phase 1 scope
+  PRODUCER
+}
+
+// Invite codes for team member registration
+model InviteCode {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code           String   @unique  // e.g., "EDITOR_abc123"
+  role           Role     // Role assigned when using this code
+  used           Boolean  @default(false)
+  usedByUserId   String?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([code])
 }
 
 model User {
@@ -323,12 +340,42 @@ model User {
   payouts        Payout[]
   leads          Lead[]         // assigned leads
   withdrawals    WithdrawalRequest[]
+  notifications  Notification[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   @@index([organizationId])
   @@index([email])
   @@index([role])
+}
+
+// ── NOTIFICATIONS (In-App) ──────────────────────────────────
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  PROJECT_UPDATE
+  DELIVERY_READY
+  LEAD_NEW
+  ORDER_CONFIRMED
+  ORDER_COMPLETED
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  title     String
+  message   String
+  link      String?         // optional link to navigate
+  read      Boolean         @default(false)
+  createdAt DateTime        @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
 }
 
 model BrandAccess {

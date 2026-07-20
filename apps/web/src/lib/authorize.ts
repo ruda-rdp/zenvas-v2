@@ -53,6 +53,12 @@ const rolePermissions: Record<Role, Action[]> = {
     "read:brand",
     "manage:settings",
   ],
+  PRODUCER: [
+    "read:projects", "write:projects",
+    "read:tasks", "write:tasks",
+    "read:leads", "write:leads",
+    "read:orders",
+  ],
   EDITOR: [
     "read:tasks",
     "read:payouts", // own only, enforced at query level

@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db";
 import type { Role } from "@/generated/prisma";
 
@@ -9,6 +10,7 @@ declare module "next-auth" {
     id: string;
     role: Role;
     employmentType: string;
+    organizationId: string;
   }
   interface Session {
     user: {
@@ -17,6 +19,7 @@ declare module "next-auth" {
       name: string;
       role: Role;
       employmentType: string;
+      organizationId: string;
     };
   }
 }
@@ -43,9 +46,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // TODO: Add proper password hashing with bcrypt
-        // For now, this is a placeholder
-        const isValid = user.passwordHash === credentials.password;
+        const password = credentials.password as string;
+        if (!password) {
+          return null;
+        }
+
+        // Verify password with bcrypt
+        const isValid = await bcrypt.compare(password, user.passwordHash);
 
         if (!isValid) {
           return null;
@@ -57,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           role: user.role,
           employmentType: user.employmentType,
+          organizationId: user.organizationId,
         };
       },
     }),
@@ -67,6 +75,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         token.role = user.role;
         token.employmentType = user.employmentType;
+        token.organizationId = user.organizationId;
       }
       return token;
     },
@@ -75,6 +84,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
         session.user.employmentType = token.employmentType as string;
+        session.user.organizationId = token.organizationId as string;
       }
       return session;
     },

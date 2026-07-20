@@ -3,10 +3,16 @@ import type { NextRequest } from "next/server";
 
 // ADR-0003: Dynamic Brand-by-Domain Resolution, Single Application
 
+// Internal admin domain — configurable via environment variable
+const INTERNAL_DOMAIN = process.env.INTERNAL_DOMAIN || "app.zenvas.localhost";
+const INTERNAL_DOMAIN_ALT = process.env.INTERNAL_DOMAIN_ALT || "localhost";
+
 const INTERNAL_DOMAINS = [
-  "app.zenvas.local",
+  INTERNAL_DOMAIN,
+  INTERNAL_DOMAIN_ALT,
   "localhost",
   "127.0.0.1",
+  "internal",
 ];
 
 const BRAND_DOMAINS: Record<string, string> = {
