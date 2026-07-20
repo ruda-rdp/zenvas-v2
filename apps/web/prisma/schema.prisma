@@ -220,6 +220,13 @@ model Project {
   id        String   @id @default(cuid())
   orderId   String   @unique
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Display
+  name        String?   // Optional display name (defaults to service name)
+  description String?   // Project description
+  posterUrl   String?   // Thumbnail image URL
+  posterAspect String   @default("16:9") // 16:9, 4:3, 1:1
+  
   stages    Stage[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

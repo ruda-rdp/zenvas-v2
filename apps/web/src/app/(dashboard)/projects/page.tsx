@@ -479,41 +479,56 @@ function PosterModal({ project, onClose, onSave }: { project: Project; onClose: 
   );
 }
 
-// Create Project Modal
+// Create Project Modal - Create from CONFIRMED Orders
 function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [brandId, setBrandId] = useState("");
-  const [brands, setBrands] = useState<any[]>([]);
+  const [orderId, setOrderId] = useState("");
+  const [posterUrl, setPosterUrl] = useState("");
+  const [posterAspect, setPosterAspect] = useState("16:9");
+  const [orders, setOrders] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
-    fetchBrands();
+    fetchOrders();
   }, []);
 
-  async function fetchBrands() {
+  async function fetchOrders() {
+    setLoadingOrders(true);
     try {
-      const res = await fetch("/api/settings/brands");
+      const res = await fetch("/api/orders?status=CONFIRMED");
       if (res.ok) {
         const data = await res.json();
-        setBrands(data.brands || []);
+        setOrders(data.orders || []);
       }
     } catch (error) {
-      console.error("Error fetching brands:", error);
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoadingOrders(false);
     }
   }
 
   async function handleCreate() {
-    if (!name || !brandId) return;
+    if (!orderId) return;
     setSaving(true);
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, brandId }),
+        body: JSON.stringify({ 
+          orderId, 
+          name: name || undefined, 
+          description: description || undefined,
+          posterUrl: posterUrl || undefined,
+          posterAspect 
+        }),
       });
       if (res.ok) {
         onCreated();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Failed to create project");
       }
     } catch (error) {
       console.error("Error creating project:", error);
@@ -525,46 +540,103 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
   return (
     <Modal title="Create Project" onClose={onClose}>
       <div className="space-y-4">
+        {/* Order Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Select CONFIRMED Order *
+          </label>
+          {loadingOrders ? (
+            <div className="py-2 text-gray-500">Loading orders...</div>
+          ) : orders.length === 0 ? (
+            <div className="py-2 text-gray-500 text-sm">
+              No CONFIRMED orders available. Orders must be CONFIRMED (DP received) before creating a project.
+            </div>
+          ) : (
+            <select
+              value={orderId}
+              onChange={(e) => setOrderId(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="">Select an order...</option>
+              {orders.map((order) => (
+                <option key={order.id} value={order.id}>
+                  {order.service.name} - {order.client.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        
+        {/* Project Name (Optional) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Project Name <span className="text-gray-400">(optional)</span>
+          </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My Awesome Project"
+            placeholder="Defaults to service name"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
         
+        {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Description <span className="text-gray-400">(optional)</span>
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Project description..."
-            rows={3}
+            rows={2}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
         
+        {/* Poster Upload */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Brand</label>
-          <select
-            value={brandId}
-            onChange={(e) => setBrandId(e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Poster Image URL <span className="text-gray-400">(optional)</span>
+          </label>
+          <input
+            type="url"
+            value={posterUrl}
+            onChange={(e) => setPosterUrl(e.target.value)}
+            placeholder="https://example.com/poster.jpg"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">Select a brand</option>
-            {brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>{brand.name}</option>
-            ))}
-          </select>
+          />
+          <p className="mt-1 text-xs text-gray-500">Enter a URL to your poster image</p>
         </div>
         
+        {/* Poster Aspect Ratio */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Poster Aspect Ratio
+          </label>
+          <div className="flex gap-2">
+            {["16:9", "4:3", "1:1"].map((ratio) => (
+              <button
+                key={ratio}
+                onClick={() => setPosterAspect(ratio)}
+                className={`flex-1 py-2 rounded-lg border ${
+                  posterAspect === ratio 
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600" 
+                    : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+                }`}
+              >
+                {ratio}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Create Button */}
         <button
           onClick={handleCreate}
-          disabled={saving || !name || !brandId}
-          className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          disabled={saving || !orderId}
+          className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? "Creating..." : "Create Project"}
         </button>

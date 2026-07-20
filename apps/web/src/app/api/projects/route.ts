@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { orderId } = body;
+    const { orderId, name, description, posterUrl, posterAspect } = body;
 
     if (!orderId) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
     // Check Order exists and is CONFIRMED
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { service: true },
+      include: { service: true, client: true },
     });
 
     if (!order) {
@@ -149,10 +149,17 @@ export async function POST(request: Request) {
       }>;
     }>;
 
+    // Default name = service name if not provided
+    const projectName = name || `${order.service.name} - ${order.client.name}`;
+
     // Create project first
     const project = await prisma.project.create({
       data: {
         orderId,
+        name: projectName,
+        description: description || null,
+        posterUrl: posterUrl || null,
+        posterAspect: posterAspect || "16:9",
       },
     });
 
