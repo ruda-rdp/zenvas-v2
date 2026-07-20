@@ -218,8 +218,8 @@ model Order {
 
 model Project {
   id        String   @id @default(cuid())
-  orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String?  @unique  // Optional - solo projects don't have orders
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
   // Display
   name        String?   // Optional display name (defaults to service name)

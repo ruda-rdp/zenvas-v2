@@ -91,7 +91,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/projects - Create a new project (only from CONFIRMED Order)
+// POST /api/projects - Create a new project (solo mode or from CONFIRMED Order)
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -104,125 +104,134 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { orderId, name, description, posterUrl, posterAspect } = body;
+    const { 
+      // Solo mode (no order)
+      name, 
+      description, 
+      posterUrl, 
+      posterAspect,
+      brandId,
+      // From order mode
+      orderId 
+    } = body;
 
-    if (!orderId) {
-      return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
-    }
+    // If orderId provided, create from order (original flow)
+    if (orderId) {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { service: true, client: true },
+      });
 
-    // Check Order exists and is CONFIRMED
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { service: true, client: true },
-    });
+      if (!order) {
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      }
 
-    if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
+      if (order.status !== "CONFIRMED") {
+        return NextResponse.json(
+          { error: "Project can only be created from CONFIRMED Order (DP received)" },
+          { status: 400 }
+        );
+      }
 
-    if (order.status !== "CONFIRMED") {
-      return NextResponse.json(
-        { error: "Project can only be created from CONFIRMED Order (DP received)" },
-        { status: 400 }
-      );
-    }
+      const existingProject = await prisma.project.findUnique({ where: { orderId } });
+      if (existingProject) {
+        return NextResponse.json({ error: "Project already exists for this order" }, { status: 400 });
+      }
 
-    // Check if project already exists for this order
-    const existingProject = await prisma.project.findUnique({
-      where: { orderId },
-    });
-
-    if (existingProject) {
-      return NextResponse.json(
-        { error: "Project already exists for this order" },
-        { status: 400 }
-      );
-    }
-
-    // Create project with stages and tasks from Service Template
-    const stageTemplate = order.service.stageTemplate as Array<{
-      name: string;
-      tasks: Array<{
+      const stageTemplate = order.service.stageTemplate as Array<{
         name: string;
-        expectedDurationMinutes: number;
-        visibility?: boolean;
+        tasks: Array<{ name: string; expectedDurationMinutes: number; visibility?: boolean }>;
       }>;
-    }>;
 
-    // Default name = service name if not provided
-    const projectName = name || `${order.service.name} - ${order.client.name}`;
+      const projectName = name || `${order.service.name} - ${order.client.name}`;
 
-    // Create project first
-    const project = await prisma.project.create({
-      data: {
-        orderId,
-        name: projectName,
-        description: description || null,
-        posterUrl: posterUrl || null,
-        posterAspect: posterAspect || "16:9",
-      },
-    });
-
-    // Create stages and tasks from template
-    for (let stageIndex = 0; stageIndex < stageTemplate.length; stageIndex++) {
-      const stageDef = stageTemplate[stageIndex];
-      
-      const stage = await prisma.stage.create({
+      const project = await prisma.project.create({
         data: {
-          projectId: project.id,
-          name: stageDef.name,
-          order: stageIndex,
+          orderId,
+          name: projectName,
+          description: description || null,
+          posterUrl: posterUrl || null,
+          posterAspect: posterAspect || "16:9",
         },
       });
 
-      // Create tasks for this stage
-      for (let taskIndex = 0; taskIndex < stageDef.tasks.length; taskIndex++) {
-        const taskDef = stageDef.tasks[taskIndex];
-        
-        await prisma.task.create({
-          data: {
-            stageId: stage.id,
-            name: taskDef.name,
-            order: taskIndex,
-            expectedDurationMinutes: taskDef.expectedDurationMinutes || 60,
-            clientVisible: taskDef.visibility ?? true,
-            isFromTemplate: true,
-          },
+      // Create stages and tasks from template
+      for (let stageIndex = 0; stageIndex < stageTemplate.length; stageIndex++) {
+        const stageDef = stageTemplate[stageIndex];
+        const stage = await prisma.stage.create({
+          data: { projectId: project.id, name: stageDef.name, order: stageIndex },
         });
+        for (let taskIndex = 0; taskIndex < stageDef.tasks.length; taskIndex++) {
+          const taskDef = stageDef.tasks[taskIndex];
+          await prisma.task.create({
+            data: {
+              stageId: stage.id,
+              name: taskDef.name,
+              order: taskIndex,
+              expectedDurationMinutes: taskDef.expectedDurationMinutes || 60,
+              clientVisible: taskDef.visibility ?? true,
+              isFromTemplate: true,
+            },
+          });
+        }
       }
+
+      const completeProject = await prisma.project.findUnique({
+        where: { id: project.id },
+        include: {
+          order: { include: { client: true, service: true, brand: true } },
+          stages: { include: { tasks: true }, orderBy: { order: "asc" } },
+        },
+      });
+
+      await prisma.activityLog.create({
+        data: { type: "PROJECT_CREATED", entityType: "Project", entityId: project.id, userId: session.user.id },
+      });
+
+      return NextResponse.json({ project: completeProject }, { status: 201 });
     }
 
-    // Fetch complete project
-    const completeProject = await prisma.project.findUnique({
-      where: { id: project.id },
-      include: {
-        order: {
-          include: {
-            client: true,
-            service: true,
-            brand: true,
-          },
-        },
-        stages: {
-          include: {
-            tasks: true,
-          },
-          orderBy: { order: "asc" },
-        },
-      },
-    });
+    // SOLO MODE: Create project directly without order
+    if (!name) {
+      return NextResponse.json({ error: "Project name is required for solo projects" }, { status: 400 });
+    }
 
-    // Log activity
-    await prisma.activityLog.create({
+    // Get user's accessible brand
+    const accessibleBrands = await getAccessibleBrandIds();
+    const targetBrandId = brandId && accessibleBrands.includes(brandId) 
+      ? brandId 
+      : accessibleBrands[0];
+
+    if (!targetBrandId) {
+      return NextResponse.json({ error: "No brand available. Please create a brand first." }, { status: 400 });
+    }
+
+    // Create solo project (no order association)
+    const project = await prisma.project.create({
       data: {
-        type: "PROJECT_CREATED",
-        entityType: "Project",
-        entityId: project.id,
-        userId: session.user.id,
+        name,
+        description: description || null,
+        posterUrl: posterUrl || null,
+        posterAspect: posterAspect || "16:9",
+        // Create default stages for solo projects
+        stages: {
+          create: [
+            { name: "To Do", order: 0 },
+            { name: "In Progress", order: 1 },
+            { name: "Done", order: 2 },
+          ],
+        },
+      },
+      include: {
+        stages: { include: { tasks: true }, orderBy: { order: "asc" } },
       },
     });
 
-    return NextResponse.json({ project: completeProject }, { status: 201 });
+    await prisma.activityLog.create({
+      data: { type: "PROJECT_CREATED", entityType: "Project", entityId: project.id, userId: session.user.id },
+    });
+
+    return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     console.error("Error creating project:", error);
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });

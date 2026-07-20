@@ -479,47 +479,65 @@ function PosterModal({ project, onClose, onSave }: { project: Project; onClose: 
   );
 }
 
-// Create Project Modal - Create from CONFIRMED Orders
+// Create Project Modal - Solo mode (no order required)
 function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [orderId, setOrderId] = useState("");
   const [posterUrl, setPosterUrl] = useState("");
   const [posterAspect, setPosterAspect] = useState("16:9");
-  const [orders, setOrders] = useState<any[]>([]);
+  const [posterPreview, setPosterPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [loadingOrders, setLoadingOrders] = useState(true);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  // Handle file upload
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  async function fetchOrders() {
-    setLoadingOrders(true);
+    // Preview image
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPosterPreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload file
+    setUploading(true);
     try {
-      const res = await fetch("/api/orders?status=CONFIRMED");
+      const base64 = await fileToBase64(file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file: base64,
+          filename: file.name,
+          type: file.type,
+        }),
+      });
       if (res.ok) {
         const data = await res.json();
-        setOrders(data.orders || []);
+        setPosterUrl(data.url);
       }
     } catch (error) {
-      console.error("Error fetching orders:", error);
+      console.error("Error uploading:", error);
     } finally {
-      setLoadingOrders(false);
+      setUploading(false);
     }
   }
 
   async function handleCreate() {
-    if (!orderId) return;
+    if (!name.trim()) {
+      alert("Please enter a project name");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          orderId, 
-          name: name || undefined, 
-          description: description || undefined,
+          name: name.trim(), 
+          description: description.trim() || undefined,
           posterUrl: posterUrl || undefined,
           posterAspect 
         }),
@@ -540,43 +558,16 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
   return (
     <Modal title="Create Project" onClose={onClose}>
       <div className="space-y-4">
-        {/* Order Selection */}
+        {/* Project Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Select CONFIRMED Order *
-          </label>
-          {loadingOrders ? (
-            <div className="py-2 text-gray-500">Loading orders...</div>
-          ) : orders.length === 0 ? (
-            <div className="py-2 text-gray-500 text-sm">
-              No CONFIRMED orders available. Orders must be CONFIRMED (DP received) before creating a project.
-            </div>
-          ) : (
-            <select
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="">Select an order...</option>
-              {orders.map((order) => (
-                <option key={order.id} value={order.id}>
-                  {order.service.name} - {order.client.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-        
-        {/* Project Name (Optional) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Project Name <span className="text-gray-400">(optional)</span>
+            Project Name *
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Defaults to service name"
+            placeholder="My Awesome Project"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
@@ -589,7 +580,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Project description..."
+            placeholder="Project notes..."
             rows={2}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
@@ -598,16 +589,45 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
         {/* Poster Upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Poster Image URL <span className="text-gray-400">(optional)</span>
+            Poster Image <span className="text-gray-400">(optional)</span>
           </label>
-          <input
-            type="url"
-            value={posterUrl}
-            onChange={(e) => setPosterUrl(e.target.value)}
-            placeholder="https://example.com/poster.jpg"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-          <p className="mt-1 text-xs text-gray-500">Enter a URL to your poster image</p>
+          <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+            {posterPreview || posterUrl ? (
+              <div className="relative">
+                <img 
+                  src={posterPreview || posterUrl} 
+                  alt="Poster preview" 
+                  className={`mx-auto max-h-32 rounded ${getAspectClass(posterAspect)} w-auto`}
+                />
+                <button
+                  onClick={() => { setPosterPreview(null); setPosterUrl(""); }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+                <div className="text-gray-500 dark:text-gray-400">
+                  {uploading ? (
+                    <span>Uploading...</span>
+                  ) : (
+                    <>
+                      <div className="text-2xl mb-1">📷</div>
+                      <span className="text-sm">Click to upload poster</span>
+                    </>
+                  )}
+                </div>
+              </label>
+            )}
+          </div>
         </div>
         
         {/* Poster Aspect Ratio */}
@@ -635,7 +655,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
         {/* Create Button */}
         <button
           onClick={handleCreate}
-          disabled={saving || !orderId}
+          disabled={saving || !name.trim()}
           className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? "Creating..." : "Create Project"}
@@ -643,4 +663,28 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
       </div>
     </Modal>
   );
+}
+
+// Helper: Convert file to base64
+function fileToBase64(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Helper: Get aspect ratio class
+function getAspectClass(aspect: string) {
+  switch (aspect) {
+    case "16:9": return "aspect-video";
+    case "4:3": return "aspect-[4/3]";
+    case "1:1": return "aspect-square";
+    default: return "aspect-video";
+  }
 }
