@@ -19,7 +19,7 @@ const BRAND_DOMAINS: Record<string, string> = {
   "app.kreatifproduction.com": "brand_kreatif",
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
   const pathname = request.nextUrl.pathname;
 
