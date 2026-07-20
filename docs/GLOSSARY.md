@@ -197,8 +197,8 @@ Billing mechanics deferred.
 
 ### Task
 A granular, checkable unit of work inside a Stage, with its own assignee,
-timestamps, and expected duration. Can be nested up to 4 levels deep as
-Subtasks (root Task → Subtask → Sub-subtask → Sub-sub-subtask), each level
+timestamps, and expected duration. Can be nested up to **3 levels deep** (root + 2 nesting) as
+Subtasks (root Task → Subtask → Sub-subtask), each level
 inheriting assignee/category from its parent unless overridden. Optionally
 carries a Task Category (PRE_PRODUCTION / PRODUCTION / POST_PRODUCTION) for
 workload reporting.

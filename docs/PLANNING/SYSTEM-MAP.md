@@ -249,10 +249,11 @@ Per `docs/MVP_ROADMAP.md`, only the core path is implemented:
    application, split by middleware into Client Portal context (per-Brand
    domain) and Internal context (single internal domain).
 
-3. **Odoo sync timing:** Sync on-demand (manual button) or scheduled (cron
-   every 5 min)? → Recommendation: manual button for Phase 1 (matches
-   MVP_ROADMAP.md's "manual trigger OK"), revisit only if manual sync
-   becomes a real operational bottleneck.
+3. ~~**Odoo sync timing**~~ → **RESOLVED, 2026-07-20.** Dual mechanism:
+   - **Auto-check:** System automatically checks Odoo status periodically
+   - **Manual trigger:** Owner/Manager can manually trigger sync
+   - **Error handling:** If Odoo is unreachable, notify Owner with error details
+   - See ADR-0001-odoo-integration.md for implementation details
 
 4. **Module Registry:** Real on/off toggle per Organization, or just feature
    flags in code? → Recommendation: feature flags in code for Phase 1;

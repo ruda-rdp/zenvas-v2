@@ -132,6 +132,20 @@ choice: it preserves the Owner's judgment for a decision that is inherently
 situational (urgency, editor skill match, workload), rather than forcing a
 rigid rule onto something that doesn't have one.
 
+**Payout is calculated per Task (not per Project).** Per business requirements
+(2026-07-20):
+- Each Task can have a payoutAmount assigned by Owner/Manager
+- Task payout value is **hidden from Editor** (only Owner/Manager sees it)
+- Owner/Manager determines payout based on tasks worked by each person
+- Subtasks have `payoutAmount = null` by default; payout flows to parent task's assignee
+- Rare case: Owner/Manager can attach payout to specific subtask when different people work different subtasks
+
+**Example:** Cakra handles Post-Production for Westin Commercial
+- Cakra is assigned specific Post-Production tasks
+- Payout calculated based on those tasks only (not total project value)
+- Cakra sees task completion status, not payout amount
+- Owner/Manager reviews and approves final payout
+
 **Crediting (Payout value → Wallet):**
 Only happens after the Client approves the final Delivery — not merely when
 the assignee submits their work. See BUSINESS_OS.md.

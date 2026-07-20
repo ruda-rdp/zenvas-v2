@@ -1,12 +1,13 @@
 # LEAD_MANAGEMENT.md
 
-**Status:** DRAFT v0.1 (Critical Gap Fix — Phase 1 MVP)
+**Status:** Locked v1.0 (Finalized based on business requirements)
 
 **Depends On:**
 - FOUNDATION.md
 - BUSINESS_OS.md
 - CONTEXT.md
 - MVP_ROADMAP.md
+- ADR-0001-odoo-integration.md
 
 ---
 
@@ -380,3 +381,49 @@ interface LeadPipelineReport {
 See TEST-SCENARIOS.md:
 - **EPE-001**: Lead comes in → Captured → Qualified → Converted
 - **EPE-002**: Multiple leads handled, template matching, priority management
+
+---
+
+# Business Requirements (Finalized 2026-07-20)
+
+## Dual-Path Lead Acquisition
+
+Based on client type and communication preferences:
+
+### Path 1: Self-Service (Small Clients / Individual)
+For clients who prefer digital onboarding:
+1. Client discovers brand via social media/Google
+2. Happy shares link to `studio.eatprayedit.com`
+3. Client creates account and submits inquiry via website form
+4. Lead auto-created in Zenvas
+5. Happy qualifies and converts
+
+### Path 2: Manual (Enterprise / B2B Clients)
+For clients like PT Pupuk Kalimantan Timur who are too busy for self-service:
+1. Client inquiry comes via email, phone, or meeting
+2. Happy manually creates Lead in Zenvas
+3. Happy qualifies (confirm budget, timeline, requirements)
+4. Happy creates Project directly if client is ready
+5. Odoo sync happens automatically for contact creation
+
+## Odoo Integration
+
+Per ADR-0001-odoo-integration.md:
+- Every new Client created from Lead conversion **must** create a Contact in Odoo
+- Odoo is the source of truth for Client records
+- Zenvas syncs with Odoo for Client data
+- If Odoo sync fails, notify Owner with error details
+
+## Lead Source Tracking
+
+All leads must track their source for reporting:
+- This informs marketing decisions (which channel produces best clients)
+- Source is captured at Lead creation time
+- Conversion rate per source is tracked in LeadDashboard
+
+## Editor/Freelancer Note
+
+Lead Management is for **Client Acquisition** only.
+- Leads are managed by Owner/Manager (Happy/Ruda)
+- Editor/Freelancer does not have access to Lead Management
+- Editor sees only their assigned Tasks and Board opportunities

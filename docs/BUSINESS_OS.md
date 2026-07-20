@@ -56,8 +56,13 @@ Business OS is responsible for everything before, around, and after a project.
 Business Analytics, Mission Control.
 
 **Delegated to Odoo (see ADR-0001):** Contacts/Client records, CRM,
-Proposal/Quotation, Invoice, Payment, Accounting. Zenvas orchestrates *when*
+Proposal/Quotation, Invoice, Accounting. Zenvas orchestrates *when*
 these happen, Odoo is the system of record for *what* they contain.
+
+**Delegated to External Payment Gateways (see ADR-0004):** Payment collection
+for international clients. Phase 1 uses manual confirmation; Phase 2+ integrates
+webhooks for auto-confirmation. Supported gateways: PayPal, LemonSqueezy,
+Creem.io, Manual/Wire Transfer.
 
 Business OS intentionally does not manage creative execution. Creative
 execution belongs to Project OS. Business OS intentionally does not manage

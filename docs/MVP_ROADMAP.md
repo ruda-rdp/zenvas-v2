@@ -76,13 +76,17 @@ manual tracking.**
 
 # Phase 1.5 Gap Fixes (Added 2026-07-20)
 
-Critical gaps identified during test scenario review:
+Critical gaps identified during test scenario review — **ALL RESOLVED 2026-07-20**:
 
-| Gap | Document | Status | Action |
-|-----|----------|--------|--------|
-| Lead Management | LEAD_MANAGEMENT.md | ✅ Designed | See new module below |
+| Gap | Document | Status | Notes |
+|-----|----------|--------|-------|
+| Lead Management | LEAD_MANAGEMENT.md | ✅ Locked v1.0 | Dual-path: self-service + manual |
+| Odoo Sync Strategy | ADR-0001-odoo-integration.md | ✅ Resolved | Auto-check + Manual trigger |
+| Cancellation/Refund | CANCELLATION_POLICY.md | ✅ Locked v1.0 | Stage-based rules |
+| Subtask Depth | PROJECT_OS.md, GLOSSARY.md | ✅ Resolved | 3 levels (root + 2 nesting) |
+| Payout Split | HUMAN_CAPITAL_OS.md | ✅ Resolved | Per Task, hidden from Editor |
+| **Payment Gateway** | **ADR-0004** | ✅ **Proposed** | **Multi-gateway: PayPal → LemonSqueezy → Creem → Manual** |
 | Budget Tracking | BUDGET_TRACKING.md | ✅ Designed | Phase 2 placeholder |
-| Cancellation/Refund | TBD | 🔴 Pending | Must design before Phase 1 ships |
 | Drama Studio (AI Content) | TEST-SCENARIO-DRAMA.md | ✅ Planned | Phase 3 |
 
 ---
@@ -224,19 +228,39 @@ See `TEST-SCENARIO-DRAMA.md` for full DRAMA-001 scenario (Episode 1 production).
 | Resource Library (Talent/Location) | KNOWLEDGE_ENGINE.md | More relevant to KreatifProduction/Balistory than EPE |
 | Full Knowledge Entry/Surfacing system | KNOWLEDGE_ENGINE.md | Not blocking EPE's core flow |
 | Additional Brands (Balistory, KreatifProduction, Personal) | CONTEXT.md | Data model ready; UI/rollout is sequential |
-| Cancellation/Refund flow | *(not yet designed anywhere)* | 🔴 Must design before Phase 1 ships |
+| Cancellation/Refund flow | CANCELLATION_POLICY.md | ✅ Locked v1.0 |
 | Budget Tracking | BUDGET_TRACKING.md | Phase 2 — needed for KP-001 scenario |
 | AI Content OS | FOUNDATION.md, TEST-SCENARIO-DRAMA.md | Phase 3 — Drama Studio brand |
 
 ---
 
-# One Gap to Close Before Coding: Cancellation/Refund
+# All Phase 1 Gaps Resolved ✅
 
-No locked document currently defines what happens if an Order is cancelled
-after DP payment, or a Project is cancelled mid-way. This is a real
-scenario, not a hypothetical, and should get a short dedicated discussion —
-ideally before Phase 1 ships, since it touches Order state, Invoice
-(refund), and Payout (what does an Editor keep if work was already done).
+All critical gaps identified during test scenario review have been resolved:
+
+- ✅ Cancellation/Refund Policy — CANCELLATION_POLICY.md (Locked v1.0)
+- ✅ Lead Management — LEAD_MANAGEMENT.md (Locked v1.0)
+- ✅ Odoo Sync — ADR-0001-odoo-integration.md (Resolved)
+- ✅ Subtask Depth — PROJECT_OS.md (Resolved: 3 levels)
+- ✅ Payout Split — HUMAN_CAPITAL_OS.md (Resolved: per Task)
+- ✅ Payment Gateway — ADR-0004 (Proposed: Multi-gateway strategy)
+
+**Ready for Phase 1 coding.**
+
+---
+
+# Payment Gateway Strategy (ADR-0004)
+
+See `ADR-0004-payment-gateway.md` for full details.
+
+**Gateway Stack (Priority Order):**
+1. PayPal (primary — client familiar)
+2. LemonSqueezy (to try)
+3. Creem.io (to try)
+4. Manual/Wire Transfer (fallback)
+
+**Phase 1:** Manual confirmation (Happy confirms payment after seeing in gateway/bank)
+**Phase 2+:** Webhook integration for auto-confirmation
 
 ---
 
@@ -252,7 +276,9 @@ ideally before Phase 1 ships, since it touches Order state, Invoice
 6. Project OS: Service Template, Stage, Task, Stale Detection
 7. Human Capital OS: Board, Apply/Assign, Payout, Wallet
 8. Client Portal (read-only progress view)
-9. Cancellation/Refund flow (design + build)
+9. Lead Management Module
+10. Payment Gateway (PayPal links + manual confirmation)
+11. Cancellation/Refund flow
 
 ---
 

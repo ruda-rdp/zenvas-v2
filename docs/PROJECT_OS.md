@@ -84,7 +84,8 @@ Tasks can have **up to 3 levels of nesting** — max 4 total rows deep:
 - Level 1: Root Task (parentTaskId = null)
 - Level 2: Subtask (parentTaskId = root)
 - Level 3: Sub-subtask (parentTaskId = subtask)
-- Level 4: Sub-sub-subtask (parentTaskId = sub-subtask) — maximum depth
+
+**Maximum depth: 3 levels (root + 2 nesting)** — simplified per business requirements.
 
 A Task is either a *root task* (parentTaskId = null) or a *child task*
 (parentTaskId set).

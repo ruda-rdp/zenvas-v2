@@ -47,6 +47,29 @@ not read/written directly against Odoo's internal tables. Odoo is treated as
 a pluggable backend adapter, not a hard dependency baked into Zenvas's core
 schema.
 
+## Sync Mechanism (Updated 2026-07-20)
+
+Per business requirements, Phase 1 implements dual sync mechanism:
+
+### Phase 1 Implementation
+1. **Auto-check:** System automatically checks Odoo status periodically
+2. **Manual trigger:** Owner/Manager can manually trigger sync via "Sync with Odoo" button on Order/Project page
+
+### Error Handling
+- If Odoo is unreachable during sync: notify Owner with error details (error message, timestamp, retry count)
+- Operation continues in Zenvas (Odoo sync is async, not blocking)
+- Owner can retry manual sync once Odoo is back online
+
+### Odoo as Source of Truth
+- Every new Client created from Lead conversion **must** create a Contact in Odoo
+- Odoo is the source of truth for Client records
+- Zenvas syncs with Odoo for Client data
+
+### Phase 2+ Consideration
+Consider webhook-based sync (Odoo notifies Zenvas on change) or scheduled cron. Defer until current mechanism becomes an operational bottleneck.
+
+---
+
 ## Consequences
 
 **Positive:**

@@ -1,8 +1,13 @@
 # CANCELLATION_POLICY.md
 
-**Status:** DRAFT v0.1 — Ready for Review
+**Status:** Locked v1.0 (Finalized based on business requirements)
 
 **Purpose:** Define fair cancellation and refund policy for Zenvas Orders.
+
+**Depends On:**
+- BUSINESS_OS.md
+- DATA-MODELS.md
+- CONSTITUTION.md
 
 ---
 
