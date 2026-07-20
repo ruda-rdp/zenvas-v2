@@ -1,22 +1,161 @@
-# Zenvas Philosophy
-Version: 1.1 (Locked)
+# Philosophy - Zenvas v2
 
-> The beliefs that guide every decision behind Zenvas.
+## Core Vision
 
-## We Believe
+**Zenvas is built for creators who grow.**
 
-- Creativity deserves better tools.
-- Growth should not create chaos. A new Brand, a new feature, or a new team
-  member should always be additive — never destructive to what already works.
-  If adding something breaks something else, the foundation was wrong, not
-  the addition.
-- Projects are the heart of creative work.
-- Knowledge should compound.
-- People create great work; AI amplifies people. *(This belief describes how
-  Zenvas users — creative businesses — work with AI inside the product. It
-  does not describe how Zenvas itself is built; principles for AI-assisted
-  development belong in a separate technical/governance document.)*
-- Simplicity over complexity.
-- Business, Projects, People, and Knowledge should work as one ecosystem.
-- Zenvas exists to help creative businesses grow without losing clarity,
-  quality, or peace of mind.
+From a solo vlogger editing their first video to a Hollywood studio managing a billion-dollar production — Zenvas scales with you.
+
+## The Zenvas Spectrum
+
+```
+Solo Creator          Growing Studio        Professional Agency      Enterprise
+─────────────────    ─────────────────    ──────────────────────    ────────────
+Micro Project         Team Project          Commercial Project        Feature Film
+├── Simple cuts       ├── Script            ├── Client order         ├── Multiple brands
+├── Personal brand    ├── Storyboard        ├── Contracts             ├── International team
+├── Self-managed      ├── Team invited      ├── Invoicing             ├── Global workflow
+└── Budget tracking   └── Milestones        └── Deliverables          └── Studio management
+```
+
+## Brand-First Architecture
+
+**Brand is the foundation. Everything else grows from there.**
+
+```
+Brand (YouTube channel, Production House, Personal Identity)
+└── Projects (Work being managed)
+    ├── Stages (Phases of work)
+    │   └── Tasks (Individual work items)
+    └── Team Members (When you grow)
+```
+
+## Natural Evolution
+
+### Year 1: Solo Creator
+```
+Register → Create Brand → Start Project
+```
+- 1 brand (personal vlog channel)
+- Manage own projects
+- Simple workflow
+
+### Year 2: Growing Audience
+```
+Invite Team → Share Work
+```
+- Add editors, assistants
+- Collaborate on projects
+- Basic task assignment
+
+### Year 3: Commercial Work Begins
+```
+Add Clients → Manage Orders
+```
+- External clients start asking
+- Manage deliverables
+- Basic client portal
+
+### Year 4-5: Multiple Ventures
+```
+Multiple Brands → Production House
+```
+- YouTube channel brand
+- Review product brand  
+- Travel vlog brand
+- Client production brand
+
+### Year 5+: Full Studio
+```
+Enterprise → Multi-Brand Management
+```
+- Multiple teams
+- International collaborators
+- Complex workflows
+- Feature film production
+
+## No Forced Complexity
+
+**You only use what you need.**
+
+| Phase | Features Used | Complexity |
+|-------|-------------|------------|
+| Solo | Brand, Projects, Tasks | Minimal |
+| Team | + Team Management | Basic |
+| Client | + Clients, Orders | Medium |
+| Enterprise | + All features | Full |
+
+## Design Principles
+
+### 1. Start Simple, Grow Complex
+- No client required to start
+- No order required to create project
+- Add complexity only when needed
+
+### 2. Brand is Your Identity
+- Brand = YouTube channel, production house, personal studio
+- Everything belongs to a brand
+- Switch brands seamlessly
+
+### 3. Project-Centric
+- Projects are where work happens
+- Stages and tasks organize work
+- Progress is always visible
+
+### 4. Team Scales Naturally
+- Invite team when needed
+- Permissions grow with role
+- Editor, Producer, Manager, Owner
+
+### 5. Client Features When Ready
+- Order flow is optional
+- Client portal is opt-in
+- Billing integrated when needed
+
+## Why Not "SaaS for Agencies"?
+
+Traditional agency tools force:
+- ❌ Client before you're ready
+- ❌ Order workflow for internal projects
+- ❌ Complex onboarding for simple tasks
+
+Zenvas is different:
+- ✅ Start with just a brand
+- ✅ Create project immediately
+- ✅ Add complexity as you grow
+
+## The Zenvas Way
+
+```
+You (Solo Creator)
+  ↓
+Create Brand "My Vlog Channel"
+  ↓
+Create Project "Beach Trip Edit"
+  ↓
+Add Tasks "Footage review", "Edit", "Export"
+  ↓
+(Grow organically...)
+  ↓
+Invite Editor "Sarah"
+  ↓
+Get Client Project "Product Launch Video"
+  ↓
+Create Client "Sunrise Corp"
+  ↓
+Add Order "Sunrise Corp - Product Launch"
+  ↓
+Project auto-linked to Order
+```
+
+## Scalability Promise
+
+> **Zenvas works for a 2-minute vlog edit AND a 2-hour feature film production.**
+
+The architecture supports:
+- Simple single-user workflows
+- Complex multi-team collaborations
+- International production workflows
+- Enterprise-scale operations
+
+Same interface, same concepts, different scale.

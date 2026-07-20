@@ -172,17 +172,19 @@ export default function ProjectsPage() {
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading projects...</div>
       ) : projects.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-12 text-center">
-          <div className="text-6xl mb-4">📁</div>
+          <div className="text-6xl mb-4">🎬</div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No projects yet</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Projects are created when an Order is confirmed and DP is received.
+          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+            Start your creative journey. Create your first project and organize your work.
           </p>
-          <Link
-            href="/orders"
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            View Orders
-          </Link>
+          {canCreateProject && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Create Your First Project
+            </button>
+          )}
         </div>
       ) : viewMode === "grid" ? (
         /* Grid View - Poster Style */

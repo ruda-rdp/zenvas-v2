@@ -2,136 +2,160 @@
 
 ## Overview
 
-Project OS manages the execution of creative work after an Order is confirmed. It's the operational layer that handles tasks, timelines, and delivery.
+**Per Zenvas Philosophy**: Projects are the heart of the system. No client or order required to start.
+
+Project OS manages creative work — from a simple vlog edit to a feature film production.
+
+## Core Principle
+
+> **Projects are for creators first. Orders/Clients are optional layers added when you grow.**
 
 ## Project Structure
 
 ```
 Project
-├── Stages (e.g., Pre-Production, Production, Post-Production)
-│   └── Tasks (e.g., Download files, Edit video, Export)
-└── Deliverables
+├── Brand (always required - your identity)
+├── Name & Description (display info)
+├── Poster (visual thumbnail)
+├── Stages (phases)
+│   └── Tasks (work items)
+└── (Optional) Order (when client work begins)
 ```
+
+## No-Order Project Flow
+
+```
+Create Brand → Create Project → Add Tasks → Work
+```
+
+This is the **core Zenvas flow** for solo creators and internal projects.
+
+## With Order Flow (When You Grow)
+
+```
+Project → Link to Order → Track Client Work
+```
+
+Orders become relevant when external clients are involved.
 
 ## DaVinci Resolve Style UI
 
-Projects page uses a media-style layout inspired by DaVinci Resolve:
+Projects page uses media-style layout:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Projects                              [+ New Project] [Filter ▼] │
 ├─────────────────────────────────────────────────────────────────┤
-│  [All] [In Progress] [Completed] [On Hold]                     │
+│  [All] [Active] [Completed] [On Hold]                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
 │  │ [Poster] │  │ [Poster] │  │ [Poster] │  │ [Poster] │     │
 │  │          │  │          │  │          │  │          │     │
-│  │ Project A│  │ Project B│  │ Project C│  │ Project D│     │
-│  │ Client   │  │ Client   │  │ Client   │  │ Client   │     │
-│  │ ████░░ 60%│  │ ████████ 100%│  │ ██░░░░ 20%│  │ ░░░░░░ 0%│     │
+│  │ Beach    │  │ Product  │  │ Wedding  │  │ Corporate│     │
+│  │ Trip     │  │ Launch   │  │ Film     │  │ Video   │     │
+│  │ ████░░ 60%│  │ ████████ 100%│  │ ██░░░ 20%│  │ ░░░░░░ 0%│  │
 │  │    ⋮     │  │    ⋮     │  │    ⋮     │  │    ⋮     │     │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3-Dot Menu Options:
-- **View Description** - Shows full project details
-- **Change Poster** - Update poster image and aspect ratio
-- **Project Settings** - Configure project options
-- **Delete Project** - Remove project (with confirmation)
-
-### Poster Settings:
-- **URL Input** - Link to poster image
-- **Aspect Ratios**: 16:9, 4:3, 1:1
+### 3-Dot Menu:
+- View Description
+- Change Poster
+- Project Settings
+- Delete Project
 
 ### View Modes:
-1. **Grid View** - Poster-style thumbnails
-2. **List View** - Compact rows with thumbnails
+1. **Grid** - Poster thumbnails (default)
+2. **List** - Compact rows
 
 ## Project Lifecycle
 
 ```
-Order Confirmed → Project Created → In Progress → Completed/Delivered
-                                      ↓
-                                   On Hold
+New → Active → On Hold → Completed
+          ↓
+        (Link to Order when client work)
 ```
 
-## Roles & Permissions
+## Scale Examples
+
+| Project Type | Complexity | Stages | Tasks |
+|-------------|-----------|--------|-------|
+| Vlog Edit | Simple | 3 | 5-10 |
+| YouTube Series | Medium | 4-6 | 15-30 |
+| Client Commercial | Medium | 5-8 | 20-50 |
+| Feature Film | Complex | 10+ | 100+ |
+
+## Roles & Project Access
 
 | Action | Owner | Manager | Producer | Editor |
 |--------|-------|---------|----------|--------|
-| Create Project | ✅ | ✅ | ❌ | ❌ |
+| Create Project | ✅ | ✅ | ✅ | ❌ |
 | View Project | ✅ | ✅ | ✅ | Own only |
-| Edit Project | ✅ | ✅ | ❌ | ❌ |
-| Manage Tasks | ✅ | ✅ | ✅ | Own only |
-| Change Poster | ✅ | ✅ | ❌ | ❌ |
-| Delete Project | ✅ | ❌ | ❌ | ❌ |
+| Edit Project | ✅ | ✅ | ✅ | ❌ |
+| Delete Project | ✅ | ✅ | ❌ | ❌ |
+| Change Poster | ✅ | ✅ | ✅ | ❌ |
 
 ## Project Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Unique identifier |
-| name | String | Project display name |
-| description | Text | Project details |
-| posterUrl | URL | Thumbnail image |
-| posterAspect | Enum | 16:9, 4:3, 1:1 |
-| status | Enum | ACTIVE, ON_HOLD, COMPLETED |
-| brandId | UUID | Associated brand |
-| orderId | UUID | Source order |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | UUID | Yes | Unique identifier |
+| name | String | Yes | Project display name |
+| description | Text | No | Project details |
+| posterUrl | URL | No | Thumbnail image |
+| posterAspect | Enum | Yes | 16:9, 4:3, 1:1 |
+| orderId | UUID | No | Linked Order (optional) |
 
-## Stage Types
+## Stage Templates
 
-Projects use service-defined templates:
-
-### Standard Service Template:
+### Simple Project
 ```
-Planning → Execution → Delivery → Review
+To Do → In Progress → Done
 ```
 
-### Custom Templates:
-Services can define custom stage templates with specific tasks.
+### Client Project
+```
+Pre-Production → Production → Post-Production → Delivery
+```
+
+### Film Production
+```
+Development → Pre-Production → Production → Post-Production → Marketing → Delivery
+```
 
 ## Task Management
 
-Tasks are the smallest unit of work:
+Tasks are the smallest work unit:
 
 ```typescript
 interface Task {
   id: string;
   name: string;
   description?: string;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETE";
+  status: "OPEN" | "IN_PROGRESS" | "COMPLETE";
   assigneeUserId?: string;
   expectedDurationMinutes: number;
-  visibility: "PUBLIC" | "INTERNAL";
-  payoutAmount?: number; // Confidential to non-Editors
+  payoutAmount?: number; // Confidential
 }
 ```
-
-### Editor Restrictions:
-- Editors can only see/view assigned tasks
-- Editors cannot see payoutAmount
-- Editors can only update their own tasks' status
 
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/projects` | GET | List all projects |
+| `/api/projects` | GET | List projects |
 | `/api/projects` | POST | Create project |
-| `/api/projects/[id]` | GET | Get project detail |
-| `/api/projects/[id]` | PATCH | Update project |
-| `/api/projects/[id]` | DELETE | Delete project |
-| `/api/tasks/[id]` | GET | Get task detail |
-| `/api/tasks/[id]` | PATCH | Update task |
+| `/api/projects/[id]` | GET | Get detail |
+| `/api/projects/[id]` | PATCH | Update |
+| `/api/projects/[id]` | DELETE | Delete |
 
 ## Future Enhancements
 
 - [ ] Drag-drop task reordering
-- [ ] Gantt chart timeline view
-- [ ] Time tracking per task
+- [ ] Gantt chart timeline
+- [ ] Time tracking
 - [ ] File attachments
-- [ ] Comments/annotations
 - [ ] Version history
 - [ ] Template library
+- [ ] Project templates
