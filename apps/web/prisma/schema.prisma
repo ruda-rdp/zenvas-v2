@@ -37,6 +37,7 @@ model Brand {
   orders         Order[]
   leads          Lead[]
   brandAccess    BrandAccess[]
+  projects       Project[]    // Solo projects without orders
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -220,11 +221,13 @@ model Project {
   id        String   @id @default(cuid())
   orderId   String?  @unique  // Optional - solo projects don't have orders
   order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brandId   String?  // For solo projects - associates with a brand
+  brand     Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
   
   // Display
-  name        String?   // Optional display name (defaults to service name)
-  description String?   // Project description
-  posterUrl   String?   // Thumbnail image URL
+  name        String   // Required - project display name
+  description String?  // Project description
+  posterUrl   String?  // Thumbnail image URL
   posterAspect String   @default("16:9") // 16:9, 4:3, 1:1
   
   stages    Stage[]
@@ -232,6 +235,7 @@ model Project {
   updatedAt DateTime @updatedAt
 
   @@index([orderId])
+  @@index([brandId])
 }
 
 model Stage {

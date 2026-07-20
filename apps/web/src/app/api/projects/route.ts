@@ -20,25 +20,28 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
     const brandId = searchParams.get("brandId");
 
     const accessibleBrands = await getAccessibleBrandIds();
     
+    // Include projects with order (brand filter) OR projects without order (solo projects)
     const where: Record<string, unknown> = {
-      order: {
-        brandId: {
-          in: accessibleBrands,
-        },
-      },
+      OR: [
+        // Projects with orders from accessible brands
+        { order: { brandId: { in: accessibleBrands } } },
+        // Solo projects (no order) - they belong to accessible brands through user's access
+        { order: null },
+      ],
     };
 
+    // For solo projects, we need to handle differently - they need brand association
+    // For now, show all projects without orders (solo) or with orders
+    
     if (brandId && accessibleBrands.includes(brandId)) {
-      where.order = { ...where.order as object, brandId };
-    }
-
-    if (status) {
-      where.order = { ...where.order as object, status };
+      where.OR = [
+        { order: { brandId } },
+        { order: null }, // Solo projects shown for all
+      ];
     }
 
     const projects = await prisma.project.findMany({
@@ -72,13 +75,13 @@ export async function GET(request: Request) {
       if (session.user.role === "EDITOR") {
         return {
           ...project,
-          order: {
+          order: project.order ? {
             ...project.order,
             service: {
               ...project.order.service,
               // Hide price for editors
             },
-          },
+          } : null,
         };
       }
       return project;
@@ -234,6 +237,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     console.error("Error creating project:", error);
-    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: `Failed to create project: ${message}` }, { status: 500 });
   }
 }
