@@ -2,106 +2,136 @@
 
 ## Overview
 
-Project OS manages projects within a Brand. Projects are flexible - they can be client-facing or internal.
+Project OS manages the execution of creative work after an Order is confirmed. It's the operational layer that handles tasks, timelines, and delivery.
 
-## Core Concepts
-
-### Brand = Universal Workspace
-
-A **Brand** is the primary entity in Zenvas. It's designed to be universal:
-
-- **For Studios/Agencies**: Serve clients with formal order flow
-- **For Freelancers**: Internal projects without clients
-- **For Everyone**: Project = organized work with tasks
-
-### Projects
-
-A **Project** is a container for stages and tasks. It's created from:
-- An **Order** (client project with intake form)
-- Directly (internal project without client)
+## Project Structure
 
 ```
 Project
-├── Stage 1 (Planning)
-│   └── Task A
-│   └── Task B
-├── Stage 2 (Execution)
-│   └── Task C
-└── Stage 3 (Delivery)
-    └── Task D
+├── Stages (e.g., Pre-Production, Production, Post-Production)
+│   └── Tasks (e.g., Download files, Edit video, Export)
+└── Deliverables
 ```
 
-## Project Creation
+## DaVinci Resolve Style UI
 
-### Client Project (via Order)
+Projects page uses a media-style layout inspired by DaVinci Resolve:
+
 ```
-Lead → Qualified → Order Created → Project Auto-Created
+┌─────────────────────────────────────────────────────────────────┐
+│  Projects                              [+ New Project] [Filter ▼] │
+├─────────────────────────────────────────────────────────────────┤
+│  [All] [In Progress] [Completed] [On Hold]                     │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │ [Poster] │  │ [Poster] │  │ [Poster] │  │ [Poster] │     │
+│  │          │  │          │  │          │  │          │     │
+│  │ Project A│  │ Project B│  │ Project C│  │ Project D│     │
+│  │ Client   │  │ Client   │  │ Client   │  │ Client   │     │
+│  │ ████░░ 60%│  │ ████████ 100%│  │ ██░░░░ 20%│  │ ░░░░░░ 0%│     │
+│  │    ⋮     │  │    ⋮     │  │    ⋮     │  │    ⋮     │     │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-When an order is confirmed:
-1. System creates a Project
-2. Explodes Service.stageTemplate into Stages & Tasks
-3. Tasks assigned based on template
+### 3-Dot Menu Options:
+- **View Description** - Shows full project details
+- **Change Poster** - Update poster image and aspect ratio
+- **Project Settings** - Configure project options
+- **Delete Project** - Remove project (with confirmation)
 
-### Internal Project
+### Poster Settings:
+- **URL Input** - Link to poster image
+- **Aspect Ratios**: 16:9, 4:3, 1:1
+
+### View Modes:
+1. **Grid View** - Poster-style thumbnails
+2. **List View** - Compact rows with thumbnails
+
+## Project Lifecycle
+
 ```
-Dashboard → Projects → [New Project]
+Order Confirmed → Project Created → In Progress → Completed/Delivered
+                                      ↓
+                                   On Hold
 ```
 
-Internal projects don't require:
-- Client
-- Order
-- Intake form
+## Roles & Permissions
 
-## Task Structure
+| Action | Owner | Manager | Producer | Editor |
+|--------|-------|---------|----------|--------|
+| Create Project | ✅ | ✅ | ❌ | ❌ |
+| View Project | ✅ | ✅ | ✅ | Own only |
+| Edit Project | ✅ | ✅ | ❌ | ❌ |
+| Manage Tasks | ✅ | ✅ | ✅ | Own only |
+| Change Poster | ✅ | ✅ | ❌ | ❌ |
+| Delete Project | ✅ | ❌ | ❌ | ❌ |
 
-### Task Hierarchy
-- **Root Task**: Top-level work item
-- **Subtask**: Child of root (max 4 levels deep)
+## Project Fields
 
-### Task Properties
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID | Unique identifier |
+| name | String | Project display name |
+| description | Text | Project details |
+| posterUrl | URL | Thumbnail image |
+| posterAspect | Enum | 16:9, 4:3, 1:1 |
+| status | Enum | ACTIVE, ON_HOLD, COMPLETED |
+| brandId | UUID | Associated brand |
+| orderId | UUID | Source order |
+
+## Stage Types
+
+Projects use service-defined templates:
+
+### Standard Service Template:
+```
+Planning → Execution → Delivery → Review
+```
+
+### Custom Templates:
+Services can define custom stage templates with specific tasks.
+
+## Task Management
+
+Tasks are the smallest unit of work:
+
 ```typescript
-{
-  name: string,
-  status: OPEN | IN_PROGRESS | COMPLETE,
-  category: PRE_PRODUCTION | PRODUCTION | POST_PRODUCTION,
-  assigneeUserId: string | null,
-  expectedDurationMinutes: number,
-  payoutAmount: number | null,
-  clientVisible: boolean, // Show to client?
+interface Task {
+  id: string;
+  name: string;
+  description?: string;
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETE";
+  assigneeUserId?: string;
+  expectedDurationMinutes: number;
+  visibility: "PUBLIC" | "INTERNAL";
+  payoutAmount?: number; // Confidential to non-Editors
 }
 ```
 
-### Client Visibility
-- `clientVisible: true` → Shown on Client Portal
-- `clientVisible: false` → Internal only (QC, management)
+### Editor Restrictions:
+- Editors can only see/view assigned tasks
+- Editors cannot see payoutAmount
+- Editors can only update their own tasks' status
 
-## Stage Workflow
+## API Endpoints
 
-### Default Stages
-```
-Planning → Execution → Delivery → Done
-```
-
-### Stage Completion
-- Stage completes when all tasks complete
-- Completion triggers:
-  - Notification to relevant users
-  - Activity log entry
-  - (For client stages) Update on Client Portal
-
-## Key Principles
-
-1. **Universal Design**: Project works with or without client
-2. **Template-Based**: Services define stage templates
-3. **Task Assignment**: Tasks assigned to team members
-4. **Visibility Control**: Fine-grained client visibility
-5. **Progress Tracking**: Real-time stage/task status
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/projects` | GET | List all projects |
+| `/api/projects` | POST | Create project |
+| `/api/projects/[id]` | GET | Get project detail |
+| `/api/projects/[id]` | PATCH | Update project |
+| `/api/projects/[id]` | DELETE | Delete project |
+| `/api/tasks/[id]` | GET | Get task detail |
+| `/api/tasks/[id]` | PATCH | Update task |
 
 ## Future Enhancements
 
-- [ ] Project templates (save as template)
-- [ ] Duplicate project
-- [ ] Project milestones
+- [ ] Drag-drop task reordering
+- [ ] Gantt chart timeline view
 - [ ] Time tracking per task
-- [ ] Gantt chart view
+- [ ] File attachments
+- [ ] Comments/annotations
+- [ ] Version history
+- [ ] Template library
