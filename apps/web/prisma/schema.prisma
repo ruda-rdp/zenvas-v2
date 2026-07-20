@@ -1,0 +1,426 @@
+// Zenvas v2 - Prisma Schema
+// Based on docs/PLANNING/DATA-MODELS.md (Locked v1.0)
+// Tech Stack: Next.js 14 + Prisma 5.x + PostgreSQL (Neon)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── ORGANIZATION & BRAND ──────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  brands    Brand[]
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String       // "EatPrayEdit"
+  domain         String       @unique // "studio.eatprayedit.com" — used by ADR-0003 middleware
+  isPersonalBrand Boolean     @default(false) // true only for the Personal Brand (no Order flow)
+  logoUrl        String?      // if null, Client Portal renders `name` as a styled text wordmark
+  primaryColor   String       @default("#2563EB") // hex, used for buttons/accents in Client Portal only
+  services       Service[]
+  clients        Client[]
+  orders         Order[]
+  leads          Lead[]
+  brandAccess    BrandAccess[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// ── SERVICE & SERVICE TEMPLATE ────────────────────────────────
+
+model Service {
+  id            String   @id @default(cuid())
+  brandId       String
+  brand         Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name          String   // "Real Estate Edit"
+  price         Decimal  @db.Decimal(12, 2) // fixed price list, Phase 1 has no Proposal/Quotation
+  intakeFormSchema Json  // field definitions for the Order Form
+  stageTemplate Json     // ordered [{ name, tasks: [{ name, expectedDurationMinutes, visibility }] }]
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([brandId])
+}
+
+// ── LEAD MANAGEMENT ──────────────────────────────────────────
+
+enum LeadSource {
+  WEBSITE_FORM
+  FACEBOOK_DM
+  INSTAGRAM_DM
+  WHATSAPP
+  PHONE_CALL
+  REFERRAL
+  GOOGLE_SEARCH
+  EMAIL
+  WALK_IN
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  ON_HOLD
+  CONVERTED
+  LOST
+  WON
+}
+
+model Lead {
+  id           String   @id @default(cuid())
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  // Contact Info
+  name         String
+  email        String?
+  phone        String?
+  company      String?  // For B2B leads
+  
+  // Source Tracking
+  source       LeadSource
+  sourceDetails String?  // e.g., "Facebook DM", "Website form"
+  sourceUrl    String?
+  
+  // Qualification
+  status       LeadStatus @default(NEW)
+  priority     String     @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  interest     String     // What they want: "Villa video", "Wedding film"
+  budget       String?    // "Rp 5-8 juta"
+  budgetNumeric Decimal?  @db.Decimal(12, 2) // Parsed for reporting
+  timeline     String?    // "ASAP", "2 weeks"
+  timelineDays Int?
+  
+  // Tags
+  tags         String[]   // ["#realestate", "#seminyak"]
+  
+  // Qualification Notes
+  qualificationNotes String?
+  referenceLinks    String[]
+  
+  // Conversion Link
+  clientId     String?
+  client       Client?   @relation(fields: [clientId], references: [id])
+  
+  // Metadata
+  assignedTo   String?    // User who owns this lead
+  assigned    User?     @relation(fields: [assignedTo], references: [id])
+  lastContactedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([brandId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([clientId])
+}
+
+// ── CLIENT & CLIENT CONTACT ─────────────────────────────────
+
+model Client {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String   // "PT Sunshine Properties" or "Wayfront Cafe"
+  email     String   // primary contact email
+  odooPartnerId String? // res.partner id, synced per ADR-0001
+  orders    Order[]
+  leads    Lead[]
+  contacts  ClientContact[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId])
+}
+
+model ClientContact {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name      String
+  email     String  @unique // each person has one login
+  role      String? // "Marketing Manager", "Villa GM"
+
+  // Permissions within Client Portal
+  canApproveDelivery Boolean @default(false)
+  canSeeAllProjects   Boolean @default(true)
+  canSeeInvoices      Boolean @default(false)
+
+  // Notification preferences
+  notifyProgress Boolean @default(true)
+  notifyApproval Boolean @default(true)
+  notifyInvoice  Boolean @default(false)
+
+  // Auth
+  passwordHash   String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, email])
+  @@index([clientId])
+}
+
+// ── ORDER (Business OS, inbound) ──────────────────────────────
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  brandId      String
+  brand        Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id])
+  serviceId    String
+  service      Service     @relation(fields: [serviceId], references: [id])
+  status       OrderStatus @default(DRAFT)
+  intakeFormData Json      // Client's submitted answers to Service.intakeFormSchema
+  odooInvoiceDpId    String?  // account.move id for the DP invoice
+  odooInvoiceFinalId String?  // account.move id for the Final invoice
+  project      Project?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  confirmedAt  DateTime?
+  completedAt  DateTime?
+
+  @@index([brandId])
+  @@index([clientId])
+  @@index([serviceId])
+  @@index([status])
+}
+
+// ── PROJECT / STAGE / TASK (Project OS) ───────────────────────
+
+model Project {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stages    Stage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+model Stage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  order     Int      // sequence within the Project
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETE
+}
+
+enum TaskCategory {
+  PRE_PRODUCTION   // script breakdown, location recce, storyboarding, planning
+  PRODUCTION       // principal work (shoot, recording, etc.)
+  POST_PRODUCTION  // editing, color, sound, VFX, delivery
+}
+
+model Task {
+  id                     String     @id @default(cuid())
+  stageId                String
+  stage                  Stage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  // HIERARCHY (subtasks, max 4 levels deep)
+  parentTaskId           String?    // null = root task, set = subtask
+  parent                 Task?      @relation("SubTasks", fields: [parentTaskId], references: [id])
+  children               Task[]     @relation("SubTasks")
+
+  // BASIC
+  name                   String
+  order                  Int
+  status                 TaskStatus @default(OPEN)
+  category               TaskCategory?  // mainly for parent tasks; subtasks inherit
+
+  // ORIGIN
+  isFromTemplate         Boolean    @default(true) // true = exploded from Service.stageTemplate
+
+  // ASSIGNMENT
+  assigneeUserId         String?
+  assignee               User?      @relation(fields: [assigneeUserId], references: [id])
+
+  // PAYOUT (parent only)
+  payoutAmount           Decimal?   @db.Decimal(12, 2)
+
+  // TIMING
+  expectedDurationMinutes Int
+  startedAt              DateTime?
+  completedAt            DateTime?
+
+  // VISIBILITY
+  clientVisible          Boolean    @default(true) // true = shown to Client, false = INTERNAL_ONLY
+
+  payout                 Payout?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  @@index([stageId])
+  @@index([parentTaskId])
+  @@index([assigneeUserId])
+  @@index([status])
+}
+
+// ── USER, ROLE, BRAND ACCESS (Human Capital OS) ───────────────
+
+enum EmploymentType {
+  FREELANCE
+  INHOUSE
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  EDITOR
+  // PRODUCER intentionally omitted — Phase 1 scope
+}
+
+model User {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String         @unique
+  role           Role
+  employmentType EmploymentType
+  passwordHash   String?
+  brandAccess    BrandAccess[]
+  tasks          Task[]
+  payouts        Payout[]
+  leads          Lead[]         // assigned leads
+  withdrawals    WithdrawalRequest[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([role])
+}
+
+model BrandAccess {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
+  @@index([userId])
+  @@index([brandId])
+}
+
+// ── PAYOUT & WALLET (Human Capital OS) ────────────────────────
+
+enum PayoutStatus {
+  ALLOCATED   // set when Task posted to Board, not yet earned
+  CREDITED    // Client approved final Delivery — now in the Wallet
+}
+
+model Payout {
+  id        String       @id @default(cuid())
+  taskId    String       @unique
+  task      Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  amount    Decimal      @db.Decimal(12, 2)
+  status    PayoutStatus @default(ALLOCATED)
+  creditedAt DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  PAID
+}
+
+model WithdrawalRequest {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  amount    Decimal          @db.Decimal(12, 2)
+  status    WithdrawalStatus @default(REQUESTED)
+  requestedAt DateTime       @default(now())
+  paidAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ── ACTIVITY LOG (Immutable) ──────────────────────────────────
+
+enum ActivityType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_COMPLETED
+  ORDER_CANCELLED
+  PROJECT_CREATED
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  STAGE_COMPLETED
+  DELIVERY_SENT
+  DELIVERY_APPROVED
+  PAYOUT_ALLOCATED
+  PAYOUT_CREDITED
+  WITHDRAWAL_REQUESTED
+  WITHDRAWAL_PAID
+  LEAD_CREATED
+  LEAD_QUALIFIED
+  LEAD_CONVERTED
+  LEAD_LOST
+}
+
+model ActivityLog {
+  id        String       @id @default(cuid())
+  type      ActivityType
+  entityType String     // "Order", "Project", "Task", etc.
+  entityId  String
+  userId    String?     // who performed the action
+  metadata  Json?       // additional context
+  createdAt DateTime    @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
