@@ -91,6 +91,7 @@ export async function getCurrentUser() {
 /**
  * Get user's accessible brand IDs (for multi-brand filtering)
  * Per HUMAN_CAPITAL_OS.md - Brand Access pattern
+ * FIXED: Now filters by user's organization
  */
 export async function getAccessibleBrandIds(): Promise<string[]> {
   const user = await getCurrentUser();
@@ -99,17 +100,31 @@ export async function getAccessibleBrandIds(): Promise<string[]> {
     return [];
   }
 
-  // Owner and Manager see all brands
-  if (user.role === "OWNER" || user.role === "MANAGER") {
-    const allBrands = await prisma.brand.findMany({
-      select: { id: true },
-    });
-    return allBrands.map((b) => b.id);
+  // Get user's organization first
+  const userWithOrg = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { organizationId: true },
+  });
+
+  if (!userWithOrg?.organizationId) {
+    return [];
   }
 
-  // Editor sees only brands they have access to
+  // Owner and Manager see all brands in their organization only
+  if (user.role === "OWNER" || user.role === "MANAGER") {
+    const orgBrands = await prisma.brand.findMany({
+      where: { organizationId: userWithOrg.organizationId },
+      select: { id: true },
+    });
+    return orgBrands.map((b) => b.id);
+  }
+
+  // Editor sees only brands they have access to in their organization
   const brandAccess = await prisma.brandAccess.findMany({
-    where: { userId: user.id },
+    where: { 
+      userId: user.id,
+      brand: { organizationId: userWithOrg.organizationId }
+    },
     select: { brandId: true },
   });
   return brandAccess.map((b) => b.brandId);

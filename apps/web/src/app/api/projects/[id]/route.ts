@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canAccessBrand } from "@/lib/authorize";
 
 export async function GET(
   request: Request,
@@ -18,7 +19,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    
+
     const project = await prisma.project.findUnique({
       where: { id },
       include: {
@@ -58,6 +59,14 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    // Check brand access
+    if (project.brandId) {
+      const hasAccess = await canAccessBrand(project.brandId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
+      }
+    }
+
     return NextResponse.json({ project });
   } catch (error) {
     console.error("Error fetching project:", error);
@@ -88,6 +97,14 @@ export async function PATCH(
     const existing = await prisma.project.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Check brand access
+    if (existing.brandId) {
+      const hasAccess = await canAccessBrand(existing.brandId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
+      }
     }
 
     // Update only provided fields
@@ -141,7 +158,21 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    
+
+    // Check project exists and get brandId
+    const existing = await prisma.project.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Check brand access
+    if (existing.brandId) {
+      const hasAccess = await canAccessBrand(existing.brandId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
+      }
+    }
+
     await prisma.project.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

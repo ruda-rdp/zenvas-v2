@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrandIds } from "@/lib/authorize";
+import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
 import { syncOrderDpInvoice } from "@/lib/odoo";
 import { OrderStatus } from "@/generated/prisma";
 
@@ -102,6 +102,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "clientId, serviceId, and brandId are required" },
         { status: 400 }
+      );
+    }
+
+    // Check brand access before creating order
+    const hasAccess = await canAccessBrand(brandId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "You don't have access to this brand" },
+        { status: 403 }
       );
     }
 

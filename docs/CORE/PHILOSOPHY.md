@@ -2,9 +2,19 @@
 
 ## Core Vision
 
-**Zenvas is built for creators who grow.**
+**Zenvas is built for filmmakers and creative professionals who manage their own work.**
 
-From a solo vlogger editing their first video to a Hollywood studio managing a billion-dollar production — Zenvas scales with you.
+From a solo creator editing their first project to a production house managing complex shoots — Zenvas scales with you, but starts with YOU.
+
+---
+
+## Phase-Based Philosophy
+
+**Phase 1: Solo Creator** — You work alone. You need project management.
+**Phase 2: Project OS** — Add filmmaker tools. Script, storyboard, production planning.
+**Phase 3: Business OS** — Add clients, orders, invoicing when you're ready.
+
+> You never need Phase 3 to use Zenvas. Phase 1 is complete on its own.
 
 ## The Zenvas Spectrum
 

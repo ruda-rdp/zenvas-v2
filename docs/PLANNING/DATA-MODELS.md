@@ -1,159 +1,383 @@
 # DATA-MODELS.md
 
-Status: Locked v1.0 (Phase 1 scope)
+**Status:** Updated v1.1 (Reflects ADR-0005: Modular Architecture)
+**Previous:** v1.0 (Locked, Phase 1 scope)
 
-Depends On: ADR-0002 (Prisma/PostgreSQL), all locked foundation docs,
-PAGE-FLOWS.md
+Depends On: ADR-0002 (Prisma/PostgreSQL), ADR-0005 (Modular Architecture),
+all foundation docs, PAGE-FLOWS.md
 
 ---
 
 # Purpose
 
-Concrete Prisma schema for Phase 1. This is the single source of truth for
-field names and types — Claude Code should generate `schema.prisma` from
-this, not invent its own naming per session.
+Concrete Prisma schema for Zenvas v2. This reflects the **Modular Architecture**
+decision (ADR-0005) where:
+- **Project OS** and **Human Capital OS** are CORE (always installed)
+- **Business OS** is OPTIONAL (installable per Organization)
+- **Brand** no longer requires a domain for personal use
 
-**Design note:** the schema below intentionally includes `Organization` and
-`Brand` as first-class, multi-row-capable tables even though Phase 1 only
-populates one row of each (per CONTEXT.md's "cheap now, expensive later"
-reasoning, and ADR-0003's dynamic domain resolution).
+**Design note:** Organization and Brand are first-class, multi-row-capable tables.
+Schema supports Solo Creator (no domain needed) to Full Agency (multi-brand with
+custom domains).
 
 ---
 
 # Schema (Prisma-style)
 
-```prisma
-// ── ORGANIZATION & BRAND ──────────────────────────────────────
+## ── ORGANIZATION (Tenant) ──────────────────────────────────────
 
+```prisma
 model Organization {
   id        String   @id @default(cuid())
   name      String
+  slug      String   @unique  // URL-safe identifier for org
+  
+  // Plan & Apps (Org-level feature flags per ADR-0005)
+  plan      String   @default("solo")  // "solo" | "growing" | "agency"
+  apps      String[] @default(["project-os", "human-capital-os"])
+            // Installed apps. Core apps are always present.
+            // Optional: "business-os", "lead-management", "odoo-sync"
+  
   brands    Brand[]
   users     User[]
+  inviteCodes InviteCode[]
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([slug])
 }
+```
 
+### Plan Definitions
+
+| Plan | Description | Default Apps |
+|------|-------------|--------------|
+| `solo` | Solo creator, personal projects | project-os, human-capital-os |
+| `growing` | Has clients, needs Business OS | project-os, human-capital-os, business-os |
+| `agency` | Full studio, multi-brand | All core apps |
+
+### App Registry
+
+| App | Description | Type |
+|-----|-------------|------|
+| `project-os` | Projects, Stages, Tasks, Scripts | CORE |
+| `human-capital-os` | Users, Roles, Board, Payout | CORE |
+| `business-os` | Clients, Orders, Invoices | OPTIONAL |
+| `lead-management` | Lead capture, qualification | OPTIONAL |
+| `odoo-sync` | Odoo integration | OPTIONAL |
+
+---
+
+## ── BRAND (Identity Unit) ──────────────────────────────────────
+
+```prisma
 model Brand {
   id             String   @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  name           String       // "EatPrayEdit"
-  domain         String       @unique // "app.eatprayedit.com" — used by ADR-0003 middleware
-  isPersonalBrand Boolean     @default(false) // true only for the Personal Brand (no Order flow)
-  logoUrl        String?      // if null, Client Portal renders `name` as a styled text wordmark
-  primaryColor   String       @default("#2563EB") // hex, used for buttons/accents in Client Portal only —
-                                                    // never affects the Internal app (see UX_MODES.md → Brand Theming)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Identity (always required)
+  name           String       // "EatPrayEdit", "Jacob Film", "Dewa Personal"
+  slug           String       @unique  // URL-safe identifier: "eatprayedit", "jacob-film"
+  
+  // Domain & Portal (optional per ADR-0005)
+  domain         String?      @unique  // Custom domain: "studio.eatprayedit.com"
+                                        // Nullable: personal brands may not have domains
+  freeSubdomain  String?      @unique  // Free subdomain: "jacobfilm.zenvas-portal.app"
+                                        // Auto-generated when hasClientPortal = true
+  hasClientPortal Boolean     @default(false)
+                                        // When true: enables Business OS features for this brand
+  
+  // NOTE: isPersonalBrand is deprecated
+  // → Use hasClientPortal = false for personal use
+  // → Use plan = "solo" for solo creator mode
+  
+  // Branding
+  logoUrl        String?      // If null, renders `name` as styled text wordmark
+  primaryColor   String       @default("#2563EB") // Hex, for Client Portal only
+                                                  // Never affects Internal app
+  
+  // Relations
   services       Service[]
-  clients        Client[]
-  orders         Order[]
+  clients        Client[]     // Only used if hasClientPortal = true
+  orders         Order[]      // Only used if hasClientPortal = true
+  leads          Lead[]       // Only used if hasClientPortal = true
   brandAccess    BrandAccess[]
+  projects       Project[]    // Solo projects without orders
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([slug])
 }
+```
 
-// ── SERVICE & SERVICE TEMPLATE ────────────────────────────────
+### Brand Types in Practice
 
+| Use Case | slug | domain | freeSubdomain | hasClientPortal |
+|----------|------|--------|---------------|------------------|
+| Jacob Film (solo) | `jacob-film` | null | null | false |
+| Dewa Collaboration | `dewa-collab` | null | `dewa-collab.zenvas-portal.app` | true |
+| EPE Studio | `epe-studio` | `studio.eatprayedit.com` | null | true |
+| EPE Wedding | `epe-wedding` | `wedding.eatprayedit.com` | null | true |
+
+---
+
+## ── SERVICE & SERVICE TEMPLATE ────────────────────────────────
+
+```prisma
 model Service {
   id            String   @id @default(cuid())
   brandId       String
-  brand         Brand    @relation(fields: [brandId], references: [id])
-  name          String   // "Real Estate Edit"
-  price         Decimal  // fixed price list, Phase 1 has no Proposal/Quotation
-  intakeFormSchema Json  // field definitions for the Order Form
-  stageTemplate Json     // ordered [{ name, tasks: [{ name, expectedDurationMinutes, visibility }] }]
-                           // visibility: CLIENT_VISIBLE (default) or INTERNAL_ONLY
-  orders        Order[]
+  brand         Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  name          String   // "Real Estate Edit", "Wedding Film"
+  price         Decimal  @db.Decimal(12, 2)  // Fixed price
+                    // NOTE: Service.price visible only to OWNER/MANAGER
+                    // Editors cannot see this (CONSTITUTION.md rule)
+  
+  intakeFormSchema Json  // Field definitions for Order Form
+                    // Only used if brand.hasClientPortal = true
+  
+  stageTemplate Json     // Ordered: [{ name, tasks: [{ name, expectedDurationMinutes, visibility }] }]
+                    // visibility: true = CLIENT_VISIBLE, false = INTERNAL_ONLY
+  
+  orders        Order[]  // Only used if hasClientPortal = true
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([brandId])
+}
+```
+
+---
+
+## ── LEAD MANAGEMENT ──────────────────────────────────────────
+
+> Only relevant if `business-os` app is installed in Organization
+
+```prisma
+enum LeadSource {
+  WEBSITE_FORM
+  FACEBOOK_DM
+  INSTAGRAM_DM
+  WHATSAPP
+  PHONE_CALL
+  REFERRAL
+  GOOGLE_SEARCH
+  EMAIL
+  WALK_IN
+  OTHER
 }
 
-// ── CLIENT & CLIENT CONTACT ─────────────────────────────────
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  ON_HOLD
+  CONVERTED   // → becomes a Client
+  LOST
+  WON
+}
 
+model Lead {
+  id           String   @id @default(cuid())
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  // Contact Info
+  name         String
+  email        String?
+  phone        String?
+  company      String?  // For B2B leads
+  
+  // Source Tracking
+  source       LeadSource
+  sourceDetails String?  // "Facebook DM", "Website form"
+  sourceUrl    String?
+  
+  // Qualification
+  status       LeadStatus @default(NEW)
+  priority     String     @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
+  interest     String     // What they want: "Villa video", "Wedding film"
+  budget       String?     // "Rp 5-8 juta"
+  budgetNumeric Decimal?   @db.Decimal(12, 2)
+  timeline     String?     // "ASAP", "2 weeks"
+  timelineDays Int?
+  
+  // Tags
+  tags         String[]   // ["#realestate", "#seminyak"]
+  
+  // Qualification Notes
+  qualificationNotes String?
+  referenceLinks    String[]
+  
+  // Conversion Link
+  clientId     String?
+  client       Client?   @relation(fields: [clientId], references: [id])
+  
+  // Metadata
+  assignedTo   String?
+  assigned     User?     @relation(fields: [assignedTo], references: [id])
+  lastContactedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([brandId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([clientId])
+}
+```
+
+---
+
+## ── CLIENT & CLIENT CONTACT ─────────────────────────────────
+
+> Only relevant if `business-os` app is installed AND `brand.hasClientPortal = true`
+
+```prisma
 model Client {
   id        String   @id @default(cuid())
   brandId   String
-  brand     Brand    @relation(fields: [brandId], references: [id])
-  name      String   // "PT Sunshine Properties" or "Wayfront Cafe"
-  email     String   // primary contact email
-  odooPartnerId String? // res.partner id, synced per ADR-0001
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  name      String   // "PT Sunshine Properties" or "Ayana Resort"
+  email     String   // Primary contact email
+  phone     String?
+  company   String?  // Company/organization name if different from name
+  
+  odooPartnerId String?  // res.partner id, synced per ADR-0001
+  
   orders    Order[]
-  contacts  ClientContact[]  // 1-to-many: multiple people per Client Account
+  leads     Lead[]   // Leads that converted to this client
+  contacts  ClientContact[]
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // NOTE: Client == Account (a company/hotel/property). Each Client Account
-  // can have multiple ClientContacts (people) with their own logins.
-  // Per Wayfront/Zendo pattern — validated by REFERENCES.md research.
+  @@index([brandId])
 }
 
 model ClientContact {
   id        String  @id @default(cuid())
   clientId  String
-  client    Client  @relation(fields: [clientId], references: [id])
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   name      String
-  email     String  // unique per Client — each person has one login
+  email     String  @unique  // Each person has one login
+  
   role      String? // "Marketing Manager", "Villa GM", "Social Media"
 
   // Permissions within Client Portal
-  canApproveDelivery Boolean @default(false)  // gets approval buttons
-  canSeeAllProjects   Boolean @default(true)   // or scope to specific projects
-  canSeeInvoices      Boolean @default(false)  // financial data
+  canApproveDelivery Boolean @default(false)
+  canSeeAllProjects   Boolean @default(true)
+  canSeeInvoices      Boolean @default(false)
 
   // Notification preferences
   notifyProgress Boolean @default(true)
   notifyApproval Boolean @default(true)
   notifyInvoice  Boolean @default(false)
 
+  // Auth
+  passwordHash   String?
+  
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([clientId, email])  // one email per Client Account
+  @@unique([clientId, email])
+  @@index([clientId])
 }
+```
 
-// ── ORDER (Business OS, inbound) ──────────────────────────────
+---
 
+## ── ORDER (Business OS) ──────────────────────────────────────
+
+> Only relevant if `business-os` app is installed AND `brand.hasClientPortal = true`
+
+```prisma
 enum OrderStatus {
   DRAFT
   CONFIRMED
   IN_PROGRESS
   COMPLETED
+  CANCELLED
 }
 
 model Order {
   id           String      @id @default(cuid())
   brandId      String
-  brand        Brand       @relation(fields: [brandId], references: [id])
+  brand        Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
   clientId     String
   client       Client      @relation(fields: [clientId], references: [id])
   serviceId    String
   service      Service     @relation(fields: [serviceId], references: [id])
+  
   status       OrderStatus @default(DRAFT)
   intakeFormData Json      // Client's submitted answers to Service.intakeFormSchema
-  odooInvoiceDpId    String?  // account.move id for the DP invoice
-  odooInvoiceFinalId String?  // account.move id for the Final invoice
+  
+  // Odoo Integration (per ADR-0001)
+  odooInvoiceDpId    String?
+  odooInvoiceFinalId String?
+  
   project      Project?
   createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   confirmedAt  DateTime?
   completedAt  DateTime?
 
   // CONSTITUTION.md #3: Project can only be created once status = CONFIRMED
-  // (enforced in application logic, not just documented here)
+  
+  @@index([brandId])
+  @@index([clientId])
+  @@index([serviceId])
+  @@index([status])
 }
+```
 
-// ── PROJECT / STAGE / TASK (Project OS) ───────────────────────
+---
 
+## ── PROJECT / STAGE / TASK (Project OS - CORE) ─────────────────
+
+**Always present regardless of plan or installed apps.**
+
+```prisma
 model Project {
   id        String   @id @default(cuid())
-  orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id])
+  orderId   String?  @unique  // Optional - solo projects don't have orders
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brandId   String?  // For solo projects - associates with a brand
+  brand     Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  // Display
+  name        String   // Required - project display name
+  description String?  // Project description
+  type        String?  // "youtube", "wedding", "corporate", "film"
+  posterUrl   String?  // Thumbnail image URL
+  posterAspect String  @default("16:9")  // 16:9, 4:3, 1:1, 9:16 (vertical)
+  
+  // Content (new in v1.1)
+  scriptContent  String?  // Markdown/JSON for script
+  storyboardUrls String[] // URLs to storyboard images
+  
   stages    Stage[]
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([brandId])
 }
 
 model Stage {
   id        String   @id @default(cuid())
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name      String
-  order     Int      // sequence within the Project
+  order     Int      // Sequence within the Project
   tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 enum TaskStatus {
@@ -163,143 +387,228 @@ enum TaskStatus {
 }
 
 enum TaskCategory {
-  PRE_PRODUCTION   // script breakdown, location recce, storyboarding, planning
-  PRODUCTION       // principal work (shoot, recording, etc.)
-  POST_PRODUCTION  // editing, color, sound, VFX, delivery
+  PRE_PRODUCTION   // Script breakdown, location recce, storyboarding
+  PRODUCTION       // Principal work (shoot, recording)
+  POST_PRODUCTION  // Editing, color, sound, VFX, delivery
 }
 
 model Task {
   id                     String     @id @default(cuid())
   stageId                String
-  stage                  Stage      @relation(fields: [stageId], references: [id])
+  stage                  Stage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
-  // ── HIERARCHY (subtasks, max 4 levels deep — confirmed against
-  //    PROJECT_OS.md's Task Hierarchy, see Westin Commercial Bali example) ──
-  parentTaskId           String?    // null = root task, set = subtask
+  // Hierarchy (subtasks, max 4 levels)
+  parentTaskId           String?    // null = root task
   parent                 Task?      @relation("SubTasks", fields: [parentTaskId], references: [id])
   children               Task[]     @relation("SubTasks")
-  // NOTE: Prisma's self-relation does not enforce depth on its own — the
-  // 4-level cap must be validated in application logic (e.g. in
-  // lib/authorize.ts or a dedicated task-hierarchy helper) at creation time,
-  // not assumed from the schema alone.
 
-  // ── BASIC ──
+  // Basic
   name                   String
   order                  Int
   status                 TaskStatus @default(OPEN)
-  category               TaskCategory?  // optional, mainly for parent tasks;
-                                       // subtasks inherit parent's category
+  category               TaskCategory?
 
-  // ── ORIGIN (NEW) ──
+  // Origin
   isFromTemplate         Boolean    @default(true)
-                          // true = exploded from Service.stageTemplate on Order confirm
-                          // false = manually added by Owner/Manager to existing project
+                          // true = exploded from Service.stageTemplate
+                          // false = manually added
 
-  // ── ASSIGNMENT ──
+  // Assignment
   assigneeUserId         String?
   assignee               User?      @relation(fields: [assigneeUserId], references: [id])
-                          // Subtasks inherit parent's assignee unless explicitly overridden
+                          // Subtasks inherit parent's assignee unless overridden
 
-  // ── PAYOUT (parent only — see Payout[] for split scenarios) ──
-  payoutAmount           Decimal?
+  // Payout (parent only)
+  payoutAmount           Decimal?   @db.Decimal(12, 2)
                           // Root task: original suggested payout
-                          // Subtask: usually null (payout flows to parent)
-                          //   Override allowed: creates separate Payout record per subtask
+                          // Subtask: null (payout flows to parent)
 
-  // ── TIMING ──
+  // Timing
   expectedDurationMinutes Int
   startedAt              DateTime?
   completedAt            DateTime?
 
-  // ── VISIBILITY ──
-  // Option A: Boolean (simple) — clientVisible = true/false
-  // Option B: Enum (more flexible) — supports INHERIT from template
-  // Decision: Use Boolean for Phase 1. INHERIT is a UI concept, not a data state.
-  // Override happens at Service.stageTemplate level (defaults), Task level for exceptions.
+  // Visibility
   clientVisible          Boolean    @default(true)
-    // true = CLIENT_VISIBLE (shown to Client in portal)
-    // false = INTERNAL_ONLY (Owner/Manager only)
+                          // true = CLIENT_VISIBLE (shown in Client Portal)
+                          // false = INTERNAL_ONLY
 
-  payout                 Payout?   // 0 or 1 — Payout.taskId is @unique
+  payout                 Payout?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
 
-  // ── COMPUTED (not stored) ──
-  // • "Needs Attention" (Stale Task Detection):
-  //     status != COMPLETE AND now() - startedAt > expectedDurationMinutes
-  // • Completion cascade:
-  //     When all children are COMPLETE → parent auto-transitions to COMPLETE
-  // • Progress % (for parent tasks):
-  //     completedChildren / totalChildren
-  // Compute at query time or via scheduled job — do not store redundant state
-  // that can drift.
+  @@index([stageId])
+  @@index([parentTaskId])
+  @@index([assigneeUserId])
+  @@index([status])
 }
+```
 
-// ── USER, ROLE, BRAND ACCESS (Human Capital OS) ───────────────
+---
 
+## ── USER, ROLE, BRAND ACCESS (Human Capital OS - CORE) ─────────
+
+**Always present regardless of plan or installed apps.**
+
+```prisma
 enum EmploymentType {
   FREELANCE
   INHOUSE
 }
 
 enum Role {
-  OWNER
-  MANAGER
-  EDITOR
-  // PRODUCER intentionally omitted — Phase 1 scope (MVP_ROADMAP.md)
+  OWNER      // Full access, can manage organization
+  MANAGER    // Day-to-day operations
+  EDITOR     // Task execution only
+  PRODUCER   // Production oversight (Phase 2+)
+}
+
+// Invite codes for team member registration
+model InviteCode {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  code           String   @unique  // e.g., "EDITOR_abc123"
+  role           Role     // Role assigned when using this code
+  used           Boolean  @default(false)
+  usedByUserId   String?
+  expiresAt      DateTime?
+  
+  invitedName    String?
+  invitedEmail   String?
+
+  @@index([organizationId])
+  @@index([code])
 }
 
 model User {
   id             String         @id @default(cuid())
   organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
   name           String
   email          String         @unique
+  phone          String?
+  
   role           Role
   employmentType EmploymentType
-  brandAccess    BrandAccess[]
-  tasks          Task[]
-  payouts        Payout[]
-  withdrawals    WithdrawalRequest[]
-  createdAt      DateTime       @default(now())
+  
+  passwordHash   String?
+  passwordSalt   String?
+  
+  // Status
+  isActive       Boolean        @default(true)
+  emailVerified  Boolean        @default(false)
+  
+  // Security
+  forcePasswordChange Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil        DateTime?
+  
+  // Activity tracking
+  lastLoginAt     DateTime?
+  lastActiveAt    DateTime?
+  
+  // Profile
+  avatarUrl       String?
+  bio             String?
+  
+  // Relations
+  brandAccess     BrandAccess[]
+  tasks           Task[]
+  payouts         Payout[]
+  leads           Lead[]
+  withdrawals     WithdrawalRequest[]
+  notifications   Notification[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
 }
 
+// Brand Access - which brands can a user access?
 model BrandAccess {
   id      String @id @default(cuid())
   userId  String
-  user    User   @relation(fields: [userId], references: [id])
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   brandId String
-  brand   Brand  @relation(fields: [brandId], references: [id])
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@unique([userId, brandId])
+  @@index([userId])
+  @@index([brandId])
+}
+```
+
+---
+
+## ── NOTIFICATIONS (In-App) ──────────────────────────────────
+
+```prisma
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  PROJECT_UPDATE
+  DELIVERY_READY
+  LEAD_NEW
+  ORDER_CONFIRMED
+  ORDER_COMPLETED
+  SYSTEM
 }
 
-// ── PAYOUT & WALLET (Human Capital OS) ────────────────────────
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+```
+
+---
+
+## ── PAYOUT & WALLET (Human Capital OS - CORE) ────────────────
+
+**Always present regardless of plan or installed apps.**
+
+```prisma
 enum PayoutStatus {
-  ALLOCATED   // set when Task posted to Board, not yet earned
-  CREDITED    // Client approved final Delivery — now in the Wallet
+  ALLOCATED   // Set when Task posted to Board
+  CREDITED    // Client approved final Delivery
 }
 
 model Payout {
   id        String       @id @default(cuid())
   taskId    String       @unique
-  task      Task         @relation(fields: [taskId], references: [id])
+  task      Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   userId    String
   user      User         @relation(fields: [userId], references: [id])
-  amount    Decimal
+  amount    Decimal      @db.Decimal(12, 2)
   status    PayoutStatus @default(ALLOCATED)
   creditedAt DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  // CONSTITUTION.md #1: userId's own Payout.amount is the ONLY financial
-  // figure this User's queries may ever return. Order.intakeFormData,
-  // Service.price, and any Odoo invoice fields must be structurally
-  // excluded from any query scoped to an EDITOR role.
+  // CONSTITUTION.md #1: userId's Payout.amount is the ONLY financial
+  // figure an EDITOR may see. Service.price, Order data excluded.
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([status])
 }
-
-// Wallet balance is NOT a stored field — it is computed:
-// SUM(Payout.amount WHERE userId = X AND status = CREDITED)
-//   - SUM(WithdrawalRequest.amount WHERE userId = X AND status = PAID)
-// Storing a redundant balance risks drift; compute it, or cache with a
-// clear invalidation rule if performance requires it later.
 
 enum WithdrawalStatus {
   REQUESTED
@@ -310,38 +619,117 @@ model WithdrawalRequest {
   id        String           @id @default(cuid())
   userId    String
   user      User             @relation(fields: [userId], references: [id])
-  amount    Decimal
+  amount    Decimal          @db.Decimal(12, 2)
   status    WithdrawalStatus @default(REQUESTED)
   requestedAt DateTime       @default(now())
   paidAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 ```
 
 ---
 
-# Access Control Notes (enforcing CONSTITUTION.md #1 and #4)
+## ── ACTIVITY LOG (Immutable) ──────────────────────────────────
 
-This schema alone does not enforce Financial Confidentiality or Role
-permissions — that must happen in the query/API layer:
+```prisma
+enum ActivityType {
+  // Project OS
+  PROJECT_CREATED
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  STAGE_COMPLETED
+  
+  // Business OS (only if installed)
+  LEAD_CREATED
+  LEAD_QUALIFIED
+  LEAD_CONVERTED
+  LEAD_LOST
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_COMPLETED
+  ORDER_CANCELLED
+  DELIVERY_SENT
+  DELIVERY_APPROVED
+  
+  // Human Capital OS
+  PAYOUT_ALLOCATED
+  PAYOUT_CREDITED
+  WITHDRAWAL_REQUESTED
+  WITHDRAWAL_PAID
+}
 
-- Every query made on behalf of an `EDITOR` role must be scoped to
-  `WHERE assigneeUserId = currentUser.id` (Tasks) or `WHERE userId =
-  currentUser.id` (Payouts, WithdrawalRequests). Never return `Order`,
-  `Client`, or `Service.price` rows to an Editor under any code path.
-- `Order`, `Client`, and `Service.price` fields are readable only by
-  `OWNER` and `MANAGER` roles — this should be enforced by a shared
-  authorization layer (e.g. a single `can(user, action, resource)` function
-  used by every API route), not repeated ad hoc per route.
+model ActivityLog {
+  id         String       @id @default(cuid())
+  type       ActivityType
+  entityType String      // "Order", "Project", "Task", etc.
+  entityId   String
+  userId     String?      // Who performed the action
+  metadata   Json?        // Additional context
+  createdAt  DateTime     @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+```
 
 ---
 
-# Open Items for Future Sessions
+# Access Control (CONSTITUTION.md Enforcement)
 
-1. Odoo sync mechanism (how `odooInvoiceDpId` etc. get populated/kept in
-   sync) — technical detail, not blocking schema design.
-2. Whether `Payout.amount` needs an audit trail (who set/overrode it,
-   when) — worth adding before Phase 1 ships given CONSTITUTION.md #1's
-   weight, flagged here rather than decided.
-3. ~~Client multi-contact extension~~ — **RESOLVED**: `ClientContact` model
-   added above. Client == Account, each Account can have multiple Contacts
-   with their own logins/permissions.
+This schema alone does not enforce permissions — enforcement must happen in the API layer:
+
+## Rule 1: Financial Confidentiality (EDITOR)
+
+Every query on behalf of an `EDITOR` must be scoped:
+- Tasks: `WHERE assigneeUserId = currentUser.id`
+- Payouts: `WHERE userId = currentUser.id`
+- **NEVER** return `Order`, `Client`, or `Service.price` to an Editor
+
+## Rule 2: Role Permissions
+
+| Resource | OWNER | MANAGER | EDITOR |
+|----------|-------|---------|--------|
+| Organization settings | ✅ | ❌ | ❌ |
+| Brand settings | ✅ | ✅ (limited) | ❌ |
+| Users management | ✅ | ✅ | ❌ |
+| Projects | ✅ | ✅ | View assigned |
+| Tasks | ✅ | ✅ | View/Complete assigned |
+| Clients | ✅ | ✅ | ❌ |
+| Orders | ✅ | ✅ | ❌ |
+| Invoices | ✅ | ✅ | ❌ |
+
+## Rule 3: Business OS Feature Flag
+
+Before returning Business OS data, check:
+```typescript
+// Check if brand has Business OS enabled
+if (brand.hasClientPortal !== true) {
+  // Return empty or redirect
+  // Don't expose Client, Order, Invoice data
+}
+```
+
+---
+
+# Changes from v1.0
+
+| Change | Reason |
+|--------|--------|
+| Added `Organization.plan` and `Organization.apps` | Per ADR-0005: App Store model |
+| Added `Brand.slug` | Required for URL routing (replaces implicit slug from name) |
+| Added `Brand.freeSubdomain` | Free subdomain for Client Portal |
+| Added `Brand.hasClientPortal` | Toggle Business OS per brand |
+| Deprecated `Brand.isPersonalBrand` | Replaced by `hasClientPortal` + plan |
+| Made `Brand.domain` nullable | Personal brands may not have domains |
+| Added `Project.scriptContent`, `Project.storyboardUrls` | Script/Storyboard support |
+| Added `Project.type` | Content type categorization |
+
+---
+
+*Last updated: 2026-07-21*

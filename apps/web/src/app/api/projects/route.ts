@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can, getAccessibleBrandIds } from "@/lib/authorize";
 
-// GET /api/projects - List all projects for user's accessible brands
+// GET /api/projects - List all projects for user's organization
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -20,32 +20,58 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const brandId = searchParams.get("brandId");
+    const statusFilter = searchParams.get("status");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
+    const skip = (page - 1) * limit;
 
-    const accessibleBrands = await getAccessibleBrandIds();
-    
-    // Include projects with order (brand filter) OR projects without order (solo projects)
+    // Get user's organization
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+
+    if (!user?.organizationId) {
+      return NextResponse.json({ projects: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+    }
+
+    // Get all brands in this organization
+    const orgBrands = await prisma.brand.findMany({
+      where: { organizationId: user.organizationId },
+      select: { id: true },
+    });
+    const brandIds = orgBrands.map(b => b.id);
+
+    if (brandIds.length === 0) {
+      return NextResponse.json({ projects: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+    }
+
+    // Build where clause - projects from brands in user's organization
+    // Include both: projects with orders AND solo projects (brandId only)
     const where: Record<string, unknown> = {
       OR: [
         // Projects with orders from accessible brands
-        { order: { brandId: { in: accessibleBrands } } },
-        // Solo projects (no order) - they belong to accessible brands through user's access
-        { order: null },
+        { order: { brandId: { in: brandIds } } },
+        // Solo projects - direct brand association
+        { brandId: { in: brandIds }, orderId: null },
       ],
     };
-
-    // For solo projects, we need to handle differently - they need brand association
-    // For now, show all projects without orders (solo) or with orders
     
-    if (brandId && accessibleBrands.includes(brandId)) {
+    // Optional status filter (only for projects with orders)
+    if (statusFilter) {
       where.OR = [
-        { order: { brandId } },
-        { order: null }, // Solo projects shown for all
+        { order: { brandId: { in: brandIds }, status: statusFilter } },
+        { brandId: { in: brandIds }, orderId: null },
       ];
     }
 
+    // Get total count for pagination
+    const total = await prisma.project.count({ where });
+
     const projects = await prisma.project.findMany({
       where,
+      take: limit,
+      skip,
       include: {
         order: {
           include: {
@@ -54,6 +80,7 @@ export async function GET(request: Request) {
             brand: true,
           },
         },
+        brand: true, // For solo projects
         stages: {
           include: {
             tasks: {
@@ -73,21 +100,58 @@ export async function GET(request: Request) {
     // For Editors, strip confidential data
     const safeProjects = projects.map((project) => {
       if (session.user.role === "EDITOR") {
+        // Editors should NEVER see order, service, client, or any price data
         return {
-          ...project,
-          order: project.order ? {
-            ...project.order,
-            service: {
-              ...project.order.service,
-              // Hide price for editors
-            },
-          } : null,
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          posterUrl: project.posterUrl,
+          posterAspect: project.posterAspect,
+          createdAt: project.createdAt,
+          orderId: project.orderId,
+          brandId: project.brandId,
+          // Strip all order-related data for editors
+          order: undefined,
+          brand: project.brand ? {
+            id: project.brand.id,
+            name: project.brand.name,
+          } : undefined,
+          stages: project.stages.map(stage => ({
+            id: stage.id,
+            name: stage.name,
+            order: stage.order,
+            tasks: stage.tasks.map(task => ({
+              id: task.id,
+              name: task.name,
+              status: task.status,
+              order: task.order,
+              category: task.category,
+              expectedDurationMinutes: task.expectedDurationMinutes,
+              startedAt: task.startedAt,
+              completedAt: task.completedAt,
+              clientVisible: task.clientVisible,
+              assignee: task.assignee ? {
+                id: task.assignee.id,
+                name: task.assignee.name,
+              } : undefined,
+              // NEVER include payout info for editors
+              payout: undefined,
+            })),
+          })),
         };
       }
       return project;
     });
 
-    return NextResponse.json({ projects: safeProjects });
+    return NextResponse.json({ 
+      projects: safeProjects,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      }
+    });
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 });
@@ -194,29 +258,80 @@ export async function POST(request: Request) {
       return NextResponse.json({ project: completeProject }, { status: 201 });
     }
 
-    // SOLO MODE: Create project directly without order
+    // SOLO MODE: Create project directly (no order, brand optional for solo creators)
     if (!name) {
-      return NextResponse.json({ error: "Project name is required for solo projects" }, { status: 400 });
+      return NextResponse.json({ error: "Project name is required" }, { status: 400 });
     }
 
-    // Get user's accessible brand
-    const accessibleBrands = await getAccessibleBrandIds();
-    const targetBrandId = brandId && accessibleBrands.includes(brandId) 
-      ? brandId 
-      : accessibleBrands[0];
+    // Validate name length
+    const trimmedName = name.trim();
+    if (trimmedName.length < 1 || trimmedName.length > 200) {
+      return NextResponse.json({ error: "Project name must be between 1 and 200 characters" }, { status: 400 });
+    }
 
+    // Sanitize description
+    const sanitizedDescription = description ? description.trim().slice(0, 5000) : null;
+    
+    // Validate posterUrl if provided (basic URL check)
+    if (posterUrl && posterUrl.length > 2000) {
+      return NextResponse.json({ error: "Poster URL is too long" }, { status: 400 });
+    }
+
+    // Validate posterAspect
+    const validAspects = ["16:9", "4:3", "1:1", "9:16"];
+    if (posterAspect && !validAspects.includes(posterAspect)) {
+      return NextResponse.json({ error: "Invalid poster aspect ratio" }, { status: 400 });
+    }
+
+    // Get user's organization and accessible brands
+    const userWithOrg = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+
+    if (!userWithOrg?.organizationId) {
+      return NextResponse.json({ error: "User has no organization" }, { status: 400 });
+    }
+
+    // Get brand from request or find/create one for solo project
+    let targetBrandId: string | undefined = brandId;
+    
     if (!targetBrandId) {
-      return NextResponse.json({ error: "No brand available. Please create a brand first." }, { status: 400 });
+      // Try to find existing brand
+      const accessibleBrands = await getAccessibleBrandIds();
+      targetBrandId = accessibleBrands[0];
+      
+      // If no brand exists, create a default one for solo creators
+      if (!targetBrandId) {
+        const defaultBrand = await prisma.brand.create({
+          data: {
+            name: `${session.user.name || 'My'}'s Projects`,
+            slug: `${session.user.id.slice(-8)}-personal`,
+            organizationId: userWithOrg.organizationId,
+            hasClientPortal: false,
+          },
+        });
+        
+        // Grant user access to this brand
+        await prisma.brandAccess.create({
+          data: {
+            userId: session.user.id,
+            brandId: defaultBrand.id,
+          },
+        });
+        
+        targetBrandId = defaultBrand.id;
+      }
     }
 
-    // Create solo project (no order association)
+    // Create solo project with brand association (no order required)
     const project = await prisma.project.create({
       data: {
-        name,
-        description: description || null,
+        name: trimmedName,
+        description: sanitizedDescription,
         posterUrl: posterUrl || null,
         posterAspect: posterAspect || "16:9",
-        // Create default stages for solo projects
+        brandId: targetBrandId,
         stages: {
           create: [
             { name: "To Do", order: 0 },
@@ -226,6 +341,7 @@ export async function POST(request: Request) {
         },
       },
       include: {
+        brand: true,
         stages: { include: { tasks: true }, orderBy: { order: "asc" } },
       },
     });

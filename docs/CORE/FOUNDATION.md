@@ -6,6 +6,10 @@ Depends On:
 - PHILOSOPHY.md
 - CONTEXT.md
 
+Related Documents:
+- MODULES/APP_STORE.md (Module Manager / App Store specification)
+- MODULES/MODULE_REGISTRY.md (Complete module catalog)
+
 ---
 
 # Foundation
@@ -118,7 +122,7 @@ These modules are the foundation — cannot be uninstalled.
 - Auth & Users
 - Organizations & Brands
 - Roles & Permissions
-- Module Manager (App Store)
+- Module Manager (App Store) — *See [APP_STORE.md](../MODULES/APP_STORE.md) for full specification*
 - Activity Log (global)
 
 ### BUSINESS OS Modules

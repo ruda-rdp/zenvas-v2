@@ -1,5 +1,6 @@
 // Zenvas v2 - Prisma Schema
-// Based on docs/PLANNING/DATA-MODELS.md (Locked v1.0)
+// Based on docs/PLANNING/DATA-MODELS.md (Updated v1.1)
+// Reflects ADR-0005: Modular Architecture
 // Tech Stack: Next.js 14 + Prisma 5.x + PostgreSQL (Neon)
 
 generator client {
@@ -11,27 +12,55 @@ datasource db {
   provider = "postgresql"
 }
 
-// ── ORGANIZATION & BRAND ──────────────────────────────────────
+// ── ORGANIZATION (Tenant) ──────────────────────────────────────
 
 model Organization {
   id        String   @id @default(cuid())
   name      String
+  slug      String?  @unique  // URL-safe identifier (nullable for existing data)
+
+  // Plan & Apps (Org-level feature flags per ADR-0005)
+  plan      String   @default("solo")  // "solo" | "growing" | "agency"
+  apps      String[] @default(["project-os", "human-capital-os"])
+            // Core apps are always present
+            // Optional: "business-os", "lead-management", "odoo-sync"
+
   brands    Brand[]
   users     User[]
   inviteCodes InviteCode[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([slug])
 }
+
+// ── BRAND (Identity Unit) ──────────────────────────────────────
 
 model Brand {
   id             String   @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name           String       // "EatPrayEdit"
-  domain         String       @unique // "studio.eatprayedit.com" — used by ADR-0003 middleware
-  isPersonalBrand Boolean     @default(false) // true only for the Personal Brand (no Order flow)
-  logoUrl        String?      // if null, Client Portal renders `name` as a styled text wordmark
-  primaryColor   String       @default("#2563EB") // hex, used for buttons/accents in Client Portal only
+
+  // Identity (always required)
+  name           String       // "EatPrayEdit", "Jacob Film", "Dewa Personal"
+  slug           String?      @unique  // URL-safe identifier: "eatprayedit", "jacob-film"
+
+  // Domain & Portal (optional per ADR-0005)
+  domain         String?      @unique  // Custom domain: "studio.eatprayedit.com"
+                                        // Nullable: personal brands may not have domains
+  freeSubdomain  String?      @unique  // Free subdomain: "jacobfilm.zenvas-portal.app"
+                                        // Auto-generated when hasClientPortal = true
+  hasClientPortal Boolean     @default(false)
+                                        // When true: enables Business OS features for this brand
+
+  // NOTE: isPersonalBrand is deprecated
+  // → Use hasClientPortal = false for personal use
+
+  // Branding
+  logoUrl        String?      // If null, renders `name` as styled text wordmark
+  primaryColor   String       @default("#2563EB") // Hex, for Client Portal only
+
+  // Relations
   services       Service[]
   clients        Client[]
   orders         Order[]
@@ -42,6 +71,7 @@ model Brand {
   updatedAt      DateTime @updatedAt
 
   @@index([organizationId])
+  @@index([slug])
 }
 
 // ── SERVICE & SERVICE TEMPLATE ────────────────────────────────
@@ -50,10 +80,12 @@ model Service {
   id            String   @id @default(cuid())
   brandId       String
   brand         Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  name          String   // "Real Estate Edit"
-  price         Decimal  @db.Decimal(12, 2) // fixed price list, Phase 1 has no Proposal/Quotation
-  intakeFormSchema Json  // field definitions for the Order Form
-  stageTemplate Json     // ordered [{ name, tasks: [{ name, expectedDurationMinutes, visibility }] }]
+
+  name          String   // "Real Estate Edit", "Wedding Film"
+  price         Decimal  @db.Decimal(12, 2)  // Fixed price list
+
+  intakeFormSchema Json  // Field definitions for the Order Form
+  stageTemplate Json     // Ordered: [{ name, tasks: [{ name, expectedDurationMinutes, visibility }] }]
   orders        Order[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -89,18 +121,18 @@ model Lead {
   id           String   @id @default(cuid())
   brandId      String
   brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  
+
   // Contact Info
   name         String
   email        String?
   phone        String?
   company      String?  // For B2B leads
-  
+
   // Source Tracking
   source       LeadSource
   sourceDetails String?  // e.g., "Facebook DM", "Website form"
   sourceUrl    String?
-  
+
   // Qualification
   status       LeadStatus @default(NEW)
   priority     String     @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
@@ -109,21 +141,21 @@ model Lead {
   budgetNumeric Decimal?  @db.Decimal(12, 2) // Parsed for reporting
   timeline     String?    // "ASAP", "2 weeks"
   timelineDays Int?
-  
+
   // Tags
   tags         String[]   // ["#realestate", "#seminyak"]
-  
+
   // Qualification Notes
   qualificationNotes String?
   referenceLinks    String[]
-  
+
   // Conversion Link
   clientId     String?
   client       Client?   @relation(fields: [clientId], references: [id])
-  
+
   // Metadata
   assignedTo   String?    // User who owns this lead
-  assigned    User?     @relation(fields: [assignedTo], references: [id])
+  assigned      User?     @relation(fields: [assignedTo], references: [id])
   lastContactedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -140,9 +172,13 @@ model Client {
   id        String   @id @default(cuid())
   brandId   String
   brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  name      String   // "PT Sunshine Properties" or "Wayfront Cafe"
+
+  name      String   // "PT Sunshine Properties" or "Ayana Resort"
   email     String   // primary contact email
+  phone     String?  // primary contact phone
+  company   String?  // Company/organization name
   odooPartnerId String? // res.partner id, synced per ADR-0001
+
   orders    Order[]
   leads    Lead[]
   contacts  ClientContact[]
@@ -173,7 +209,7 @@ model ClientContact {
 
   // Auth
   passwordHash   String?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -181,7 +217,7 @@ model ClientContact {
   @@index([clientId])
 }
 
-// ── ORDER (Business OS, inbound) ──────────────────────────────
+// ── ORDER (Business OS) ──────────────────────────────────────
 
 enum OrderStatus {
   DRAFT
@@ -199,10 +235,14 @@ model Order {
   client       Client      @relation(fields: [clientId], references: [id])
   serviceId    String
   service      Service     @relation(fields: [serviceId], references: [id])
+
   status       OrderStatus @default(DRAFT)
   intakeFormData Json      // Client's submitted answers to Service.intakeFormSchema
-  odooInvoiceDpId    String?  // account.move id for the DP invoice
-  odooInvoiceFinalId String?  // account.move id for the Final invoice
+
+  // Odoo Integration (per ADR-0001)
+  odooInvoiceDpId    String?
+  odooInvoiceFinalId String?
+
   project      Project?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -215,7 +255,7 @@ model Order {
   @@index([status])
 }
 
-// ── PROJECT / STAGE / TASK (Project OS) ───────────────────────
+// ── PROJECT / STAGE / TASK (Project OS - CORE) ─────────────────
 
 model Project {
   id        String   @id @default(cuid())
@@ -223,13 +263,18 @@ model Project {
   order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   brandId   String?  // For solo projects - associates with a brand
   brand     Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  
+
   // Display
   name        String   // Required - project display name
   description String?  // Project description
+  type        String?  // "youtube", "wedding", "corporate", "film"
   posterUrl   String?  // Thumbnail image URL
-  posterAspect String   @default("16:9") // 16:9, 4:3, 1:1
-  
+  posterAspect String  @default("16:9") // 16:9, 4:3, 1:1, 9:16
+
+  // Content (NEW v1.1)
+  scriptContent  String?  // Markdown/JSON for script
+  storyboardUrls String[] // URLs to storyboard images
+
   stages    Stage[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -258,8 +303,8 @@ enum TaskStatus {
 }
 
 enum TaskCategory {
-  PRE_PRODUCTION   // script breakdown, location recce, storyboarding, planning
-  PRODUCTION       // principal work (shoot, recording, etc.)
+  PRE_PRODUCTION   // script breakdown, location recce, storyboarding
+  PRODUCTION       // principal work (shoot, recording)
   POST_PRODUCTION  // editing, color, sound, VFX, delivery
 }
 
@@ -268,34 +313,38 @@ model Task {
   stageId                String
   stage                  Stage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
-  // HIERARCHY (subtasks, max 4 levels deep)
+  // Hierarchy (subtasks, max 4 levels deep)
   parentTaskId           String?    // null = root task, set = subtask
   parent                 Task?      @relation("SubTasks", fields: [parentTaskId], references: [id])
   children               Task[]     @relation("SubTasks")
 
-  // BASIC
+  // Basic
   name                   String
   order                  Int
   status                 TaskStatus @default(OPEN)
-  category               TaskCategory?  // mainly for parent tasks; subtasks inherit
+  category               TaskCategory?
 
-  // ORIGIN
-  isFromTemplate         Boolean    @default(true) // true = exploded from Service.stageTemplate
+  // Origin
+  isFromTemplate         Boolean    @default(true)
+                          // true = exploded from Service.stageTemplate
+                          // false = manually added
 
-  // ASSIGNMENT
+  // Assignment
   assigneeUserId         String?
   assignee               User?      @relation(fields: [assigneeUserId], references: [id])
 
-  // PAYOUT (parent only)
+  // Payout (parent only)
   payoutAmount           Decimal?   @db.Decimal(12, 2)
 
-  // TIMING
+  // Timing
   expectedDurationMinutes Int
   startedAt              DateTime?
   completedAt            DateTime?
 
-  // VISIBILITY
-  clientVisible          Boolean    @default(true) // true = shown to Client, false = INTERNAL_ONLY
+  // Visibility
+  clientVisible          Boolean    @default(true)
+                          // true = shown to Client in portal
+                          // false = INTERNAL_ONLY
 
   payout                 Payout?
   createdAt              DateTime   @default(now())
@@ -307,7 +356,7 @@ model Task {
   @@index([status])
 }
 
-// ── USER, ROLE, BRAND ACCESS (Human Capital OS) ───────────────
+// ── USER, ROLE, BRAND ACCESS (Human Capital OS - CORE) ───────────────
 
 enum EmploymentType {
   FREELANCE
@@ -318,7 +367,7 @@ enum Role {
   OWNER
   MANAGER
   EDITOR
-  PRODUCER
+  PRODUCER  // Phase 2+
 }
 
 // Invite codes for team member registration
@@ -326,12 +375,18 @@ model InviteCode {
   id             String   @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   code           String   @unique  // e.g., "EDITOR_abc123"
   role           Role     // Role assigned when using this code
   used           Boolean  @default(false)
   usedByUserId   String?
   expiresAt      DateTime?
-  createdAt      DateTime @default(now())
+
+  // Invitee info (stored when generating invite)
+  invitedName    String?
+  invitedEmail   String?
+
+  createdAt DateTime @default(now())
 
   @@index([organizationId])
   @@index([code])
@@ -341,23 +396,46 @@ model User {
   id             String         @id @default(cuid())
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   name           String
   email          String         @unique
+  phone          String?
   role           Role
   employmentType EmploymentType
+
   passwordHash   String?
-  brandAccess    BrandAccess[]
-  tasks          Task[]
-  payouts        Payout[]
-  leads          Lead[]         // assigned leads
-  withdrawals    WithdrawalRequest[]
-  notifications  Notification[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  passwordSalt   String?
+
+  // Status
+  isActive       Boolean        @default(true)
+  emailVerified  Boolean        @default(false)
+
+  // Security
+  forcePasswordChange Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil        DateTime?
+
+  // Activity tracking
+  lastLoginAt     DateTime?
+  lastActiveAt    DateTime?
+
+  // Profile
+  avatarUrl       String?
+  bio             String?
+
+  brandAccess     BrandAccess[]
+  tasks           Task[]
+  payouts         Payout[]
+  leads           Lead[]
+  withdrawals     WithdrawalRequest[]
+  notifications   Notification[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([organizationId])
   @@index([email])
   @@index([role])
+  @@index([isActive])
 }
 
 // ── NOTIFICATIONS (In-App) ──────────────────────────────────
@@ -380,9 +458,9 @@ model Notification {
   type      NotificationType @default(SYSTEM)
   title     String
   message   String
-  link      String?         // optional link to navigate
+  link      String?
   read      Boolean         @default(false)
-  createdAt DateTime        @default(now())
+  createdAt DateTime         @default(now())
 
   @@index([userId])
   @@index([read])
@@ -401,7 +479,7 @@ model BrandAccess {
   @@index([brandId])
 }
 
-// ── PAYOUT & WALLET (Human Capital OS) ────────────────────────
+// ── PAYOUT & WALLET (Human Capital OS - CORE) ────────────────
 
 enum PayoutStatus {
   ALLOCATED   // set when Task posted to Board, not yet earned
@@ -448,34 +526,39 @@ model WithdrawalRequest {
 // ── ACTIVITY LOG (Immutable) ──────────────────────────────────
 
 enum ActivityType {
-  ORDER_CREATED
-  ORDER_CONFIRMED
-  ORDER_COMPLETED
-  ORDER_CANCELLED
+  // Project OS
   PROJECT_CREATED
   TASK_ASSIGNED
   TASK_COMPLETED
   STAGE_COMPLETED
-  DELIVERY_SENT
-  DELIVERY_APPROVED
-  PAYOUT_ALLOCATED
-  PAYOUT_CREDITED
-  WITHDRAWAL_REQUESTED
-  WITHDRAWAL_PAID
+
+  // Business OS
   LEAD_CREATED
   LEAD_QUALIFIED
   LEAD_CONVERTED
   LEAD_LOST
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_COMPLETED
+  ORDER_CANCELLED
+  DELIVERY_SENT
+  DELIVERY_APPROVED
+
+  // Human Capital OS
+  PAYOUT_ALLOCATED
+  PAYOUT_CREDITED
+  WITHDRAWAL_REQUESTED
+  WITHDRAWAL_PAID
 }
 
 model ActivityLog {
-  id        String       @id @default(cuid())
-  type      ActivityType
+  id         String       @id @default(cuid())
+  type       ActivityType
   entityType String     // "Order", "Project", "Task", etc.
-  entityId  String
-  userId    String?     // who performed the action
-  metadata  Json?       // additional context
-  createdAt DateTime    @default(now())
+  entityId   String
+  userId     String?     // who performed the action
+  metadata   Json?        // additional context
+  createdAt  DateTime     @default(now())
 
   @@index([entityType, entityId])
   @@index([userId])

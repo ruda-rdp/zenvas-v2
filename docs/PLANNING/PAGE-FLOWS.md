@@ -1,202 +1,392 @@
 # PAGE-FLOWS.md
 
-Status: Locked v1.0 (Phase 1 scope, per MVP_ROADMAP.md)
+**Status:** Updated v1.1 (Reflects ADR-0005: Modular Architecture)
 
-Depends On: ADR-0003 (domain routing), HUMAN_CAPITAL_OS.md (Roles &
-Permissions, Editor UI Philosophy), BUSINESS_OS.md, PROJECT_OS.md
+Depends On: ADR-0003 (domain routing), ADR-0005 (Modular Architecture),
+HUMAN_CAPITAL_OS.md, BUSINESS_OS.md, PROJECT_OS.md
 
 ---
 
 # Purpose
 
-Defines every page Phase 1 needs, which of the two contexts (Client Portal
-or Internal) it lives in, and what happens when a User of a given Role
-lands on the app. This is deliberately Phase 1-only — Producer-specific
-pages, Subscription pages, Knowledge Engine library, and Points/Level UI
-are out of scope here (see MVP_ROADMAP.md).
+Defines every page in Zenvas v2, which context it lives in, and what happens
+when a User of a given Role lands on the app.
+
+Key changes from v1.0:
+- **Onboarding flow** added for Solo Creator mode
+- **App Store** concept introduced for optional modules
+- **Client Portal routing** updated to support free subdomains
+- **Solo Creator navigation** (no Business OS) documented
 
 ---
 
-# Two Root Contexts (recap of ADR-0003)
+# Two Root Contexts
 
 ```
-Hostname matches a Brand's domain (e.g. studio.eatprayedit.com)
-   → CLIENT PORTAL CONTEXT — Client-facing only
-
-Hostname matches the one internal domain (app.zenvas.com)
-   → INTERNAL CONTEXT — Owner / Manager / Editor only
-
-Anything else → 404 / neutral landing, never falls through to either context
+┌─────────────────────────────────────────────────────────────────────────┐
+│  REQUEST ROUTING                                                     │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  External Domain (e.g., studio.eatprayedit.com)                  │ │
+│  │  OR: [slug].zenvas-portal.app                                    │ │
+│  │  → CLIENT PORTAL CONTEXT                                         │ │
+│  │    • Always requires: business-os app installed                   │ │
+│  │    • Always requires: brand.hasClientPortal = true               │ │
+│  │    • Client-facing only                                          │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  Internal Domain (e.g., app.zenvas.com, localhost)              │ │
+│  │  → INTERNAL CONTEXT                                             │ │
+│  │    • Owner / Manager / Editor only                             │ │
+│  │    • Project OS always available                               │ │
+│  │    • Human Capital OS always available                          │ │
+│  │    • Business OS shown only if app installed                    │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  Unknown host → 404 / neutral landing                                │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
-
-No page in this document exists in both contexts. A page's context is fixed
-by which domain serves it, enforced by middleware (ADR-0003), not by login
-state alone.
 
 ---
 
-# Client Portal (Brand domain, e.g. studio.eatprayedit.com)
+# ONBOARDING FLOW
+
+## Entry: /onboarding
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 1: Create Organization                                           │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │                                                                  │ │
+│  │  What's your organization called?                                │ │
+│  │  ┌─────────────────────────────────────────────────────────┐   │ │
+│  │  │  "Jacob Org" / "Dewa's Studio" / "EatPrayEdit"          │   │ │
+│  │  └─────────────────────────────────────────────────────────┘   │ │
+│  │                                                                  │ │
+│  │  [Continue →]                                                   │ │
+│  │                                                                  │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 2: Create First Brand                                            │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │                                                                  │ │
+│  │  What will you call your brand or project?                       │ │
+│  │  ┌─────────────────────────────────────────────────────────┐   │ │
+│  │  │  "Jacob Film" / "Dewa Personal" / "EPE Studio"          │   │ │
+│  │  └─────────────────────────────────────────────────────────┘   │ │
+│  │                                                                  │ │
+│  │  Will clients access a portal to track projects?               │ │
+│  │  ┌─────────────┐  ┌─────────────────────────────────────────┐   │ │
+│  │  │   No        │  │  Yes (I'll manage clients/projects)    │   │ │
+│  │  │   ○         │  │  ●                                    │   │ │
+│  │  │  (Solo      │  │  (I have clients or will have)        │   │ │
+│  │  │   Creator)  │  │                                       │   │ │
+│  │  └─────────────┘  └─────────────────────────────────────────┘   │ │
+│  │                                                                  │ │
+│  │  [Create Brand →]                                               │ │
+│  │                                                                  │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Onboarding Logic
+
+| Choice | Result |
+|--------|--------|
+| **"No" (Solo Creator)** | `hasClientPortal: false`, `apps: ["project-os", "human-capital-os"]` |
+| **"Yes" (Growing/Agency)** | `hasClientPortal: true`, `apps: ["project-os", "human-capital-os", "business-os"]` |
+
+---
+
+# CLIENT PORTAL
+
+**Only available if:**
+- `business-os` app installed in Organization
+- `brand.hasClientPortal = true`
 
 **Key UX decisions:**
 - **"Projects" not "Orders"** — Client Portal uses "Projects" terminology.
-  Creates ownership psychology: "Your Projects" feels like a studio, not a transaction.
 - **Progress bars** — Each project shows loading-style progress bar with %.
-  Estimated delivery date visible. Creates anticipation and planning clarity.
-- **Chat widget** — Bottom-right chat icon, per-project communication thread.
-  Same pattern as Odoo message threads.
+- **No Zenvas branding** — Client Portal feels like the Brand's own internal tool.
 
 ```
-/login                          Register / Login (branded as the Brand, never "Zenvas")
+/login                          Register / Login (branded as the Brand)
 /                                Redirect → /projects if logged in, else /login
-/projects                        List of this Client's Projects (all statuses)
-                                    - Progress bar per project (█░░░░░░░ 67%)
-                                    - Estimated delivery date
-                                    - Last activity timestamp
-/projects/new                    Project Form = Service's Intake Form (Product Principle: Service First)
+/projects                        List of Client's Projects (all statuses)
+/projects/new                    Project Form = Service's Intake Form
+/projects/:projectId             Project detail with Stage progress
+/projects/:projectId/delivery    Delivery review — Client approves or requests revision
+/account                         Client's profile and notification preferences
+```
+
+---
+
+# INTERNAL APP (Solo Creator Mode — No Business OS)
+
+**Shown when:** `apps` does NOT include `"business-os"`
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  NAVIGATION                                                          │
+│                                                                         │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ Projects │  │ Scripts │  │ Tasks   │  │ Board    │  │ Settings │  │
+│  └─────────┘  └─────────┘  └─────────┘  └──────────┘  └──────────┘  │
+│                                                                         │
+│  NOTE: No /clients, /orders, /invoices menu items                     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```
+/login                           Internal login
+/                                 Redirect → /projects (Solo landing)
+
+/projects                         All Projects (no client filter)
+/projects/new                     Create Project (solo, no client required)
 /projects/:projectId              Project detail:
-                                    - Project status (In Progress/Completed)
-                                    - Stage progress (Stage X of Y, expandable to Task detail)
-                                    - Invoice status (synced from Odoo, read display only)
-/projects/:projectId/pay         Redirect to Odoo-hosted or embedded payment step for DP/Final
-/projects/:projectId/delivery   Delivery review — Client approves or requests revision
-                                    (approval triggers Final Invoice + Payout crediting,
-                                    per BUSINESS_OS.md and HUMAN_CAPITAL_OS.md)
-/account                         Client's own profile/contact info
-```
+                                     - Stages, Tasks
+                                     - Scripts & Storyboards
+                                     - Media library
+/projects/:projectId/edit         Edit project details
 
-**Flow: placing and tracking a Project**
-```
-/login → /projects (empty state: "Create your first project")
-   → /projects/new (fills Intake Form for a Service)
-   → Project created [Draft] → Invoice DP issued (Odoo)
-   → /projects/:projectId/pay → DP paid → Project [In Progress]
-   → /projects/:projectId (Client watches Stage progress live, gets notifications)
-   → Delivery ready → /projects/:projectId/delivery → Client approves
-   → Project [Completed]
-```
+/scripts                          Script library (all projects)
+/scripts/:scriptId                Script editor (markdown)
 
-**Hard rule enforced on every page in this context (CONSTITUTION.md #1, #9):**
-No page here may ever display another Client's data, any Editor's identity
-beyond what a Brand chooses to show, the raw Order value if that's ever
-distinct from what the Client themselves paid, or anything that reveals the
-word "Zenvas" or internal-app URLs.
+/storyboards                      Storyboard gallery
+/storyboards/:projectId           Project storyboards
 
----
+/tasks                            All Tasks (across projects)
+/tasks/:taskId                    Task detail
 
-# Internal (single internal domain)
+/board                            Personal task board (Kanban view)
 
-## Shared
-```
-/login                           Internal login (Owner/Manager/Editor — distinct from Client Portal login)
-/                                 Redirect based on Role (see Landing Rules below)
-```
+/team                             Team (if has team members)
+/team/:userId                     User detail
 
-## Owner / Manager routes
-```
-/dashboard                       Mission Control: what needs attention, bottlenecks, stale Tasks
-/orders                          All Orders across the active Brand (Phase 1: EPE only)
-/orders/:orderId                 Order detail incl. real Order/Invoice value (Owner/Manager only)
-/projects                        All Projects, filterable by Stage
-/projects/:projectId             Project detail: Stages, Tasks, assign/reassign Editor,
-                                   set/override Payout allocation, view Client's Intake Form
-/clients                         Client list (Owner/Manager only — CONSTITUTION.md #2)
-/clients/:clientId               Client detail: Order history, preferences (if any Knowledge
-                                   Entry exists — Phase 1 may just be a free-text notes field)
-/team                             User list: Editors, their Brand Access, Employment Type
-/team/:userId                    User detail: assignment history, Wallet balance (view only)
-/payouts                         Pending withdrawal requests → mark as paid (manual transfer)
-/settings/services                Service Catalog + Service Template (Stages/Tasks/Intake Form) editor
-/settings/brand                  Brand profile: domain mapping (ADR-0003), logo upload,
-                                   primary color picker (see UX_MODES.md → Brand Theming)
-```
+/settings                         Settings
+/settings/organization            Organization settings
+/settings/brands                  Brand settings (name, colors)
+/settings/brand/:brandId          Brand detail
 
-## Editor routes (deliberately small — per Editor UI Philosophy, CONSTITUTION.md #6)
-
-**Key UX decisions:**
-- **Gamified Dashboard** — Landing page shows Level, XP, stats, achievements.
-  Creates engagement, like logging into a game that rewards work.
-- **Board as "Opportunities"** — Available tasks shown as project opportunities
-  with difficulty indicators and rewards.
-- **Continue Working** — Quick access to last active task.
-
-```
-/dashboard                         Editor Dashboard (LANDING PAGE)
-                                       - Level & XP progress bar
-                                       - Stats: Lifetime earnings, Completed projects, Pending payout
-                                       - Available Projects (Board as "opportunities")
-                                       - Continue Working (last active task)
-                                       - Achievements badges
-/projects                          Editor's assigned projects list
-/projects/:projectId               Project detail (read-only — can't modify project settings)
-/tasks/:taskId                    Task detail: Brief, checklist, mark step complete,
-                                   subtasks, discussion with Manager/Producer (never Client)
-/wallet                           Own Payout balance, completed Tasks history, request withdrawal
-/profile                          Own profile, Brand Access shown (read-only)
-```
-
-**Editor sidebar navigation:**
-```
-🎯 Dashboard   ← Landing
-📁 Projects
-📝 Tasks (→ /tasks/:id)
-💰 Wallet
-👤 Profile
-```
-
-No other route exists for the Editor Role. Anything not listed above is a
-structural 403, not a hidden menu item.
-
----
-
-# Landing Rules (on login, by Role)
-
-```
-Owner / Manager  → /dashboard (Mission Control)
-Editor           → /dashboard (Editor Dashboard — gamified personal workspace)
-```
-
-**Note:** Editor's `/dashboard` is DIFFERENT from Owner/Manager's `/dashboard`:
-- Owner/Manager sees: Mission Control (needs attention, bottlenecks)
-- Editor sees: Personal workspace (level, XP, opportunities, continue working)
-
-This redirect is a convenience, not the security boundary — the boundary is
-enforced by route-level access control per CONSTITUTION.md #4, so a
-mistyped URL by an Editor must fail structurally, not just fail to appear
-in navigation.
-
----
-
-# Order → Project → Payout, Mapped to Pages
-
-```
-Client: /orders/new  →  Owner/Manager: /orders/:orderId (reviews, DP tracked via Odoo)
-   → Order Confirmed → Owner/Manager: /projects/:projectId (assign Editor, set Payout)
-   → Editor: /board (sees it) → /tasks/:taskId (works it, checks off Tasks)
-   → Client: /orders/:orderId (watches Stage progress live)
-   → Delivery ready → Client: /orders/:orderId/delivery (approves)
-   → Editor: /wallet (Payout now credited) → requests withdrawal
-   → Owner/Manager: /payouts (marks paid)
+/workspace                        Workspace (brand selector if multiple)
 ```
 
 ---
 
-# Explicitly Out of Scope for Phase 1 Page Flows
+# INTERNAL APP (Growing/Agency Mode — With Business OS)
+
+**Shown when:** `apps` includes `"business-os"`
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  NAVIGATION                                                          │
+│                                                                         │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ Dashboard│  │ Projects │  │ Clients │  │ Orders   │  │ Settings │  │
+│  └─────────┘  └─────────┘  └─────────┘  └──────────┘  └──────────┘  │
+│                                                                         │
+│  Additional menu items:                                               │
+│  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌────────────┐             │
+│  │ Leads   │  │ Invoices│  │ Team     │  │ App Store  │             │
+│  └─────────┘  └─────────┘  └──────────┘  └────────────┘             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Owner / Manager Routes
+
+```
+/dashboard                       Mission Control: attention needed, bottlenecks
+
+/projects                         All Projects
+/projects/new                     Create Project (can link to client)
+/projects/:projectId               Project detail
+
+/clients                          Client list (CONSTITUTION.md #2: Editor cannot see)
+/clients/new                      Create Client
+/clients/:clientId                Client detail: Order history, preferences
+
+/orders                           All Orders
+/orders/new                       Create Order (select client + service)
+/orders/:orderId                  Order detail
+
+/leads                            Lead list (if lead-management app installed)
+/leads/new                         Create Lead
+/leads/:leadId                    Lead detail
+
+/invoices                         Invoice list
+/invoices/new                     Create Invoice
+/invoices/:invoiceId              Invoice detail
+
+/team                             User list
+/team/:userId                     User detail: assignment history, Wallet
+
+/settings                         Settings
+/settings/organization            Organization settings
+/settings/brands                  Brand settings + Client Portal config
+/settings/brand/:brandId          Brand detail + Portal settings
+/settings/apps                     App Store (install/uninstall apps)
+```
+
+### Editor Routes
+
+```
+/dashboard                         Editor Dashboard (LANDING)
+                                       - Level & XP (gamification)
+                                       - Stats: earnings, completed, pending
+                                       - Available Tasks (Board)
+                                       - Continue Working
+
+/projects                          Editor's assigned projects
+/projects/:projectId               Project detail (read-only)
+
+/tasks/:taskId                     Task detail
+                                       - Brief, checklist
+                                       - Mark complete
+                                       - Subtasks
+                                       - Discussion thread (Manager only, never Client)
+
+/wallet                            Own Payout balance, history, request withdrawal
+
+/profile                           Own profile, Brand Access (read-only)
+```
+
+---
+
+# APP STORE
+
+**Entry:** `/settings/apps` (Owner only)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  APP STORE                                                           │
+│                                                                         │
+│  Your Apps                                                            │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  ✅ Project OS (CORE)                                            │ │
+│  │  ✅ Human Capital OS (CORE)                                       │ │
+│  │  ✅ Business OS                                          [Remove] │ │
+│  │  🔲 Lead Management                                      [Install] │ │
+│  │  🔲 Odoo Sync                                           [Install] │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  Recommended for You                                                  │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  📊 Analytics         Track your performance                    │ │
+│  │  📱 WhatsApp Integration Chat with clients directly              │ │
+│  │  📧 Email Automation  Send automated updates to clients         │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# BRAND SETTINGS & CLIENT PORTAL
+
+**Entry:** `/settings/brands/:brandId`
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BRAND SETTINGS                                                       │
+│                                                                         │
+│  Basic Info                                                           │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  Brand Name: [Jacob Film]                                        │ │
+│  │  Slug: [jacob-film]                                              │ │
+│  │  Primary Color: [#2563EB]                                        │ │
+│  │  Logo: [Upload]                                                   │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  Client Portal                                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  Status: [Enable / Disable]                                      │ │
+│  │                                                                  │ │
+│  │  Free Subdomain: jacob-film.zenvas-portal.app                   │ │
+│  │  [Copy Link]                                                     │ │
+│  │                                                                  │ │
+│  │  ─── Or use your own domain ───                                  │ │
+│  │  Custom Domain: [studio.jacobfilms.com]                          │ │
+│  │  Instructions: Add CNAME record pointing to zenvas-portal.app  │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# LANDING RULES
+
+```
+Owner / Manager (no Business OS) → /projects
+Owner / Manager (with Business OS) → /dashboard
+
+Editor → /dashboard (Editor Dashboard — gamified)
+```
+
+---
+
+# Flow Diagrams
+
+## Solo Creator Flow (No Business OS)
+
+```
+Create Project
+      │
+      ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Script    │────▶│ Storyboard  │────▶│    Tasks    │
+│   Writing   │     │  Creation   │     │  Management │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                                │
+                    ┌───────────────────────────┘
+                    ▼
+             ┌─────────────┐
+             │   Board     │
+             │  (Kanban)   │
+             └─────────────┘
+                    │
+                    ▼
+             ┌─────────────┐
+             │  Complete   │
+             │   Project   │
+             └─────────────┘
+```
+
+## Growing Creator Flow (With Business OS)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BUSINESS FLOW (optional)                                              │
+│                                                                         │
+│  Lead → Client → Order → Project → Delivery → Payout                 │
+│      │         │       │        │            │         │              │
+│      ▼         ▼       ▼        ▼            ▼         ▼              │
+│  [Capture]  [Create] [Create] [Auto-creates] [Client] [Editor]         │
+│  Lead form  Client   Order    from Service   views   receives         │
+│             record   Draft     template     portal   payout           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# Explicitly Out of Scope
 
 - Producer-specific views (no Producer role yet)
-- Points/Level UI (Points/Levels deferred per MVP_ROADMAP.md)
-- Knowledge Engine library browsing UI (Phase 2)
-- Subscription setup/management pages (deferred)
-- Clock-In/Clock-Out UI (no Inhouse Users yet)
-- Multi-Brand switcher (EPE only in Phase 1 — UI can ignore this until Balistory/KreatifProduction onboard)
+- Points/Level UI (future gamification phase)
+- Knowledge Engine library (Phase 2)
+- Subscription/billing pages (future)
+- Clock-In/Clock-Out (future)
+- White-label (Phase 3)
 
 ---
 
-# Open Items for Future Sessions
-
-1. Exact internal domain name (placeholder used above).
-2. Whether Order payment (`/orders/:orderId/pay`) embeds Odoo's payment
-   flow or redirects out to it entirely — an implementation detail, not
-   blocking this page-flow design.
-3. Mobile-specific behavior for Editor's `/board` and `/tasks/:taskId` —
-   not designed here, worth a dedicated pass before MOCKUPS/.
-4. Empty states and error states — not detailed here, belongs in MOCKUPS/.
+*Last updated: 2026-07-21*

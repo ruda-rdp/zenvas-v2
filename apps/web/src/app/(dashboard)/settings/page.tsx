@@ -1,356 +1,253 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useTheme } from "@/components/ThemeProvider";
-import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-interface User {
+interface Organization {
   id: string;
   name: string;
-  email: string;
-  role: string;
-  employmentType: string;
+  slug: string;
+  plan: string;
+  apps: string[];
   createdAt: string;
-  organization?: {
-    id: string;
-    name: string;
-  };
+  brands?: Array<{ id: string }>;
 }
 
-export default function SettingsPage() {
-  const { data: session, update } = useSession();
-  const { theme, setTheme } = useTheme();
-  const router = useRouter();
-  
-  const [user, setUser] = useState<User | null>(null);
+export default function SettingsOverviewPage() {
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [brandCount, setBrandCount] = useState(0);
+  const [teamCount, setTeamCount] = useState(0);
+  const [clientCount, setClientCount] = useState(0);
+  const [hasBusinessOS, setHasBusinessOS] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState({ type: "", text: "" });
-  
-  // Profile form
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  
-  // Password form
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  
-  // Active tab
-  const [activeTab, setActiveTab] = useState<"profile" | "password" | "preferences">("profile");
 
+  // Inline fetch in useEffect to avoid hoisting issues
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    let ignore = false;
 
-  async function fetchProfile() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/profile");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setName(data.user.name);
-        setEmail(data.user.email);
+    async function loadData() {
+      try {
+        const [orgRes, teamRes] = await Promise.all([
+          fetch("/api/settings/organization"),
+          fetch("/api/team"),
+        ]);
+
+        if (!ignore) {
+          if (orgRes.ok) {
+            const data = await orgRes.json();
+            setOrganization(data.organization);
+            setBrandCount((data.organization?.brands?.length) || 0);
+            setHasBusinessOS((data.organization?.apps || []).includes("business-os"));
+          }
+
+          if (teamRes.ok) {
+            const data = await teamRes.json();
+            setTeamCount(data.users?.length || 0);
+          }
+
+          // Only fetch clients if business OS is available
+          if (hasBusinessOS) {
+            const clientsRes = await fetch("/api/clients");
+            if (clientsRes.ok) {
+              const data = await clientsRes.json();
+              setClientCount(data.clients?.length || 0);
+            }
+          }
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error("Error:", err);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      console.error("Error fetching profile:", err);
-    } finally {
-      setLoading(false);
     }
-  }
 
-  async function saveProfile() {
-    setSaving(true);
-    setMessage({ type: "", text: "" });
-    
-    try {
-      const res = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setUser(prev => prev ? { ...prev, ...data.user } : null);
-        // Update session
-        await update({ name: data.user.name });
-        setMessage({ type: "success", text: "Profile updated successfully!" });
-      } else {
-        const data = await res.json();
-        setMessage({ type: "error", text: data.error || "Failed to update profile" });
-      }
-    } catch (err) {
-      setMessage({ type: "error", text: "Failed to update profile" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function changePassword() {
-    if (newPassword !== confirmPassword) {
-      setMessage({ type: "error", text: "Passwords do not match" });
-      return;
-    }
-    
-    if (newPassword.length < 6) {
-      setMessage({ type: "error", text: "Password must be at least 6 characters" });
-      return;
-    }
-    
-    setSaving(true);
-    setMessage({ type: "", text: "" });
-    
-    try {
-      const res = await fetch("/api/profile/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      
-      if (res.ok) {
-        setMessage({ type: "success", text: "Password changed successfully!" });
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      } else {
-        const data = await res.json();
-        setMessage({ type: "error", text: data.error || "Failed to change password" });
-      }
-    } catch (err) {
-      setMessage({ type: "error", text: "Failed to change password" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleLogout() {
-    await signOut({ redirect: false });
-    router.push("/login");
-  }
-
-  function getRoleBadgeColor(role: string) {
-    switch (role) {
-      case "OWNER": return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300";
-      case "MANAGER": return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300";
-      case "PRODUCER": return "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300";
-      default: return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300";
-    }
-  }
+    loadData();
+    return () => { ignore = true; };
+  }, [hasBusinessOS]);
 
   if (loading) {
-    return (
-      <div className="p-8 flex items-center justify-center h-full">
-        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
-      </div>
-    );
+    return <div className="p-8 text-gray-500">Loading...</div>;
   }
 
+  const planLabels: Record<string, string> = {
+    solo: "Solo Creator",
+    growing: "Growing",
+    agency: "Agency",
+  };
+
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Settings</h1>
-      
-      {/* Message */}
-      {message.text && (
-        <div className={`mb-4 p-4 rounded-lg ${message.type === "success" ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"}`}>
-          {message.text}
-        </div>
-      )}
-      
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab("profile")}
-          className={`px-4 py-2 font-medium transition-colors ${activeTab === "profile" ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
-        >
-          Profile
-        </button>
-        <button
-          onClick={() => setActiveTab("password")}
-          className={`px-4 py-2 font-medium transition-colors ${activeTab === "password" ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
-        >
-          Password
-        </button>
-        <button
-          onClick={() => setActiveTab("preferences")}
-          className={`px-4 py-2 font-medium transition-colors ${activeTab === "preferences" ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
-        >
-          Preferences
-        </button>
+    <div className="p-8 max-w-5xl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-gray-600 mt-1">Manage your workspace, team, and integrations</p>
       </div>
-      
-      {/* Profile Tab */}
-      {activeTab === "profile" && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold">
-              {user?.name?.charAt(0).toUpperCase() || "U"}
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{user?.name}</h2>
-              <p className="text-gray-500 dark:text-gray-400">{user?.email}</p>
-              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user?.role || "")}`}>
-                {user?.role}
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <Link href="/settings/brands" className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:border-blue-300 transition-colors">
+          <div className="text-3xl font-bold text-blue-600">{brandCount}</div>
+          <div className="text-sm text-gray-500 mt-1">Brands</div>
+        </Link>
+        <Link href="/team" className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:border-blue-300 transition-colors">
+          <div className="text-3xl font-bold text-purple-600">{teamCount}</div>
+          <div className="text-sm text-gray-500 mt-1">Team Members</div>
+        </Link>
+        <Link href={hasBusinessOS ? "/clients" : "#"} className={`bg-white rounded-xl shadow border border-gray-200 p-5 hover:border-blue-300 transition-colors ${!hasBusinessOS ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          <div className="text-3xl font-bold text-green-600">{hasBusinessOS ? clientCount : '🔒'}</div>
+          <div className="text-sm text-gray-500 mt-1">
+            {hasBusinessOS ? 'Clients' : 'Business OS'}
+          </div>
+        </Link>
+        <Link href="/settings/integrations/odoo" className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:border-blue-300 transition-colors">
+          <div className="text-3xl font-bold text-orange-600">📊</div>
+          <div className="text-sm text-gray-500 mt-1">Odoo Sync</div>
+        </Link>
+      </div>
+
+      {/* Workspace Info */}
+      <div className="bg-white rounded-xl shadow border border-gray-200 p-6 mb-6">
+        <h2 className="font-semibold mb-4">Workspace</h2>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500 block">Organization</span>
+            <span className="font-medium text-lg">{organization?.name || "Not set"}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block">Plan</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                {planLabels[organization?.plan || "solo"] || "Solo Creator"}
               </span>
-            </div>
+            </span>
           </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                <p className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
-                  {user?.role}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employment</label>
-                <p className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
-                  {user?.employmentType === "FREELANCE" ? "Freelance" : "In-house"}
-                </p>
-              </div>
-            </div>
-            
-            {user?.organization && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Organization</label>
-                <p className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
-                  {user.organization.name}
-                </p>
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Member Since</label>
-              <p className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
-                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "-"}
+          <div>
+            <span className="text-gray-500 block">Workspace ID</span>
+            <code className="text-xs">{organization?.id || "—"}</code>
+          </div>
+          <div>
+            <span className="text-gray-500 block">Created</span>
+            <span>{organization?.createdAt ? new Date(organization.createdAt).toLocaleDateString() : "—"}</span>
+          </div>
+        </div>
+        {organization && (
+          <Link
+            href="/settings/organization"
+            className="text-sm text-blue-600 hover:underline mt-4 inline-block"
+          >
+            Edit workspace settings →
+          </Link>
+        )}
+      </div>
+
+      {/* Solo Creator Banner */}
+      {!hasBusinessOS && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 mb-6">
+          <div className="flex items-start gap-4">
+            <div className="text-3xl">🎬</div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900">Solo Creator Mode</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                You&apos;re in Solo Creator mode. You have access to Projects, Tasks, Scripts, and Storyboards.
+                No client portal or invoicing features yet.
               </p>
-            </div>
-            
-            <button
-              onClick={saveProfile}
-              disabled={saving}
-              className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Password Tab */}
-      {activeTab === "password" && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Change Password</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Password</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="••••••••"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="••••••••"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm New Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="••••••••"
-              />
-            </div>
-            
-            <button
-              onClick={changePassword}
-              disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-              className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? "Changing..." : "Change Password"}
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Preferences Tab */}
-      {activeTab === "preferences" && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Preferences</h2>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Dark Mode</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Switch between light and dark theme</p>
+              <div className="mt-3">
+                <Link
+                  href="/apps"
+                  className="text-sm text-blue-600 hover:underline font-medium"
+                >
+                  Browse App Store →
+                </Link>
               </div>
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className={`relative w-14 h-8 rounded-full transition-colors ${theme === "dark" ? "bg-blue-600" : "bg-gray-300"}`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Links */}
+      <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+        <h2 className="font-semibold mb-4">Quick Setup</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/settings/brands"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-3"
+          >
+            <span className="text-2xl">🎨</span>
+            <div>
+              <div className="font-medium">Manage Brands</div>
+              <div className="text-xs text-gray-500">Add or edit your brands</div>
+            </div>
+          </Link>
+          <Link
+            href="/team"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-3"
+          >
+            <span className="text-2xl">👥</span>
+            <div>
+              <div className="font-medium">Invite Team</div>
+              <div className="text-xs text-gray-500">Add members to your workspace</div>
+            </div>
+          </Link>
+          {hasBusinessOS ? (
+            <>
+              <Link
+                href="/clients"
+                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-3"
               >
-                <span className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-transform ${theme === "dark" ? "left-7" : "left-1"}`} />
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Email Notifications</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Receive email updates</p>
-              </div>
-              <button className="relative w-14 h-8 rounded-full bg-gray-300 dark:bg-gray-600 transition-colors">
-                <span className="absolute top-1 w-6 h-6 rounded-full bg-white transition-transform left-1" />
-              </button>
-            </div>
-          </div>
-          
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={handleLogout}
-              className="w-full py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                <span className="text-2xl">👤</span>
+                <div>
+                  <div className="font-medium">Manage Clients</div>
+                  <div className="text-xs text-gray-500">View and edit clients</div>
+                </div>
+              </Link>
+              <Link
+                href="/orders"
+                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-3"
+              >
+                <span className="text-2xl">📋</span>
+                <div>
+                  <div className="font-medium">Orders</div>
+                  <div className="text-xs text-gray-500">Track client orders</div>
+                </div>
+              </Link>
+            </>
+          ) : (
+            <Link
+              href="/settings/organization"
+              className="p-4 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center gap-3"
             >
-              Sign Out
-            </button>
-          </div>
+              <span className="text-2xl">🚀</span>
+              <div>
+                <div className="font-medium text-blue-900">Enable Business OS</div>
+                <div className="text-xs text-blue-700">Add clients, orders, and invoicing</div>
+              </div>
+            </Link>
+          )}
+          <Link
+            href="/settings/integrations"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-3"
+          >
+            <span className="text-2xl">🔌</span>
+            <div>
+              <div className="font-medium">Integrations</div>
+              <div className="text-xs text-gray-500">Odoo, and more</div>
+            </div>
+          </Link>
+          <Link
+            href="/profile"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-3"
+          >
+            <span className="text-2xl">👤</span>
+            <div>
+              <div className="font-medium">My Profile</div>
+              <div className="text-xs text-gray-500">Personal settings</div>
+            </div>
+          </Link>
         </div>
-      )}
+      </div>
     </div>
   );
 }

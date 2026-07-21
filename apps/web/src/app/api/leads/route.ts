@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrandIds } from "@/lib/authorize";
+import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
 import { syncClientToOdoo, createOdooClient } from "@/lib/odoo";
 import { LeadStatus } from "@/generated/prisma";
 
@@ -111,6 +111,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Name, source, interest, and brandId are required" },
         { status: 400 }
+      );
+    }
+
+    // Check brand access before creating lead
+    const hasAccess = await canAccessBrand(brandId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "You don't have access to this brand" },
+        { status: 403 }
       );
     }
 

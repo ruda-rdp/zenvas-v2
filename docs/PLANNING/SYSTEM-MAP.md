@@ -1,8 +1,7 @@
 # SYSTEM-MAP.md
 
-**Status:** 🟢 Reviewed — architecture confirmed, 2 of 5 open questions resolved (see ADR-0002, ADR-0003)
-
-**Purpose:** Visual architecture of Zenvas v2. Shows how the Four Pillars connect, where data flows, and what the modular boundaries look like.
+**Status:** 🟢 Updated — Reflects ADR-0005 Modular Architecture
+**Purpose:** Visual architecture showing CORE vs OPTIONAL modules
 
 ---
 
@@ -11,153 +10,292 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                                                                         │
-│                            ZENVAS v2                                     │
+│                            ZENVAS v2                                    │
 │                  Operating System for Creative Businesses                │
+│                    (and Creative Individuals)                            │
 │                                                                         │
-│   "Quietly manage the business so creators can create."                 │
-│                                                                         │
-│   Product Owner → Opens Zenvas → Sees Mission Control → Drills in      │
+│   "Starts simple as a solo creator, grows into a full agency."          │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# Four Pillars (Core Architecture)
+# The Three OS Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          ZENVAS v2 — CORE                                │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │  Auth · Organization · User · RBAC · Activity Log (Immutable)   │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
+│                         ZENVAS ARCHITECTURE                             │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  IDENTITY LAYER (Always On)                                      │   │
+│   │  Organization · User · Role · RBAC · Activity Log               │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                 │                                       │
+│        ┌───────────────────────┼───────────────────────┐              │
+│        ▼                       ▼                       ▼              │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐        │
+│  │  PROJECT OS   │     │ HUMAN CAPITAL │     │  BUSINESS OS  │        │
+│  │  ★ CORE       │     │    OS ★        │     │  ○ OPTIONAL   │        │
+│  ├──────────────┤     ├──────────────┤     ├──────────────┤        │
+│  │  Project     │     │  User        │     │  Lead        │        │
+│  │  Stage        │     │  Role        │     │  Client      │        │
+│  │  Task         │     │  Brand Access│     │  Order       │        │
+│  │  Script       │     │  Board       │     │  Invoice     │        │
+│  │  Storyboard   │     │  Payout      │     │  Client      │        │
+│  │  Media        │     │  Wallet      │     │    Portal    │        │
+│  └──────────────┘     └──────────────┘     └──────────────┘        │
+│        │                       │                       │              │
+│        └───────────────────────┼───────────────────────┘              │
+│                                ▼                                       │
+│                  ┌─────────────────────────┐                          │
+│                  │    KNOWLEDGE ENGINE      │                          │
+│                  │    (Phase 2+)            │                          │
+│                  ├─────────────────────────┤                          │
+│                  │  Knowledge Entries       │                          │
+│                  │  Resource Library        │                          │
+│                  │  Lessons Learned         │                          │
+│                  └─────────────────────────┘                          │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
-                               │
-            ┌──────────────────┼──────────────────┐
-            ▼                  ▼                  ▼
-┌────────────────────┐ ┌────────────────────┐ ┌────────────────────┐
-│  BUSINESS OS        │ │ PROJECT OS          │ │ HUMAN CAPITAL OS    │
-│  (Inbound Flow)    │ │ (Creative Execution)│ │ (Outbound Flow)     │
-├────────────────────┤ ├────────────────────┤ ├────────────────────┤
-│  Brand             │ │ Service Template   │ │ User                │
-│  Service Catalog   │ │ Project             │ │ Brand Access        │
-│  Client            │ │ Stage               │ │ Role + Employment   │
-│  Order             │ │ Task                │ │ Board               │
-│  Invoice (Odoo)    │ │ Delivery            │ │ Payout              │
-│  Client Portal     │ │ Stale Detection     │ │ Wallet              │
-├────────────────────┤ ├────────────────────┤ ├────────────────────┤
-│  Documents:        │ │ Documents:          │ │ Documents:          │
-│  BUSINESS_OS.md    │ │ PROJECT_OS.md       │ │ HUMAN_CAPITAL_OS.md │
-└────────────────────┘ └────────────────────┘ └────────────────────┘
-            │                  │                  │
-            └──────────────────┼──────────────────┘
-                               ▼
-                  ┌─────────────────────────┐
-                  │  KNOWLEDGE ENGINE        │
-                  │  (Deferred to Phase 2)   │
-                  ├─────────────────────────┤
-                  │  Knowledge Entries        │
-                  │  Resource Library         │
-                  │  Lessons Learned          │
-                  └─────────────────────────┘
+```
+
+### Module Status Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| **★ CORE** | Always installed, cannot be uninstalled |
+| **○ OPTIONAL** | Installable via App Store |
+
+---
+
+# User Journeys (Updated)
+
+## Journey 1: Jacob (Solo Creator)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  JACOB — Solo Filmmaker                                                │
+│                                                                         │
+│  GOAL: "Manage my film projects, scripts, storyboards"                │
+│                                                                         │
+│  Setup:                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  Organization: "Jacob Org"                                      │   │
+│  │  Plan: Solo                                                     │   │
+│  │  Apps: Project OS ★, Human Capital OS ★                         │   │
+│  │  Brand: "Jacob Film"                                             │   │
+│  │    ├── hasClientPortal: false                                   │   │
+│  │    └── No domain needed                                         │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  Uses:                                                                  │
+│  ✓ /projects — Create film projects                                    │
+│  ✓ /projects/[id]/scripts — Write scripts                              │
+│  ✓ /projects/[id]/storyboard — Storyboard images                      │
+│  ✓ /tasks — Manage tasks across projects                               │
+│  ✓ /board — Personal task board                                        │
+│                                                                         │
+│  No access to:                                                         │
+│  ✗ /clients (Business OS not installed)                                │
+│  ✗ /orders (Business OS not installed)                                 │
+│  ✗ Client Portal (not needed)                                          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+## Journey 2: Dewa (Growing Creator)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  DEWA — YouTuber → Content Business                                     │
+│                                                                         │
+│  PHASE 1: Solo YouTuber                                                │
+│  ────────────────────────────────────────────────────────────────────  │
+│  Plan: Solo                                                            │
+│  Apps: Project OS ★, Human Capital OS ★                                 │
+│  Brand: "Dewa Personal" (hasClientPortal: false)                       │
+│                                                                         │
+│  PHASE 2: First Hotel Collaboration                                     │
+│  ────────────────────────────────────────────────────────────────────  │
+│  • Installs "Business OS" from App Store                               │
+│  • Creates client "Ayana Resort"                                       │
+│  • Project linked to client (no portal needed)                         │
+│  • Invoice generated manually                                          │
+│                                                                         │
+│  PHASE 3: Multiple Collaborations                                       │
+│  ────────────────────────────────────────────────────────────────────  │
+│  • Creates brand "Dewa Collaboration"                                  │
+│  • hasClientPortal: true                                              │
+│  • Gets free subdomain: dewa-collab.zenvas-portal.app                 │
+│  • Some clients login to track progress                                 │
+│                                                                         │
+│  PHASE 4: Professional Setup                                            │
+│  ────────────────────────────────────────────────────────────────────  │
+│  • Builds website dewa.id                                              │
+│  • CNAME: studio.dewa.id → dewa-collab.zenvas-portal.app              │
+│  • Custom domain working                                               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+## Journey 3: EatPrayEdit (Full Agency)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  EATPRAYEDIT — Full Video Production Studio                             │
+│                                                                         │
+│  Organization: "EatPrayEdit"                                            │
+│  Plan: Agency                                                           │
+│  Apps: All core apps + business-os + odoo-sync + lead-management       │
+│                                                                         │
+│  Brands:                                                                │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  EPE Studio — studio.eatprayedit.com                            │   │
+│  │  EPE Wedding — wedding.eatprayedit.com                          │   │
+│  │  Both: hasClientPortal: true, custom domains                     │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  Team: Owner, 2 Managers, 5 Editors                                    │
+│  Odoo Integration: Synced clients, invoices                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# Data Flow Between Pillars
+# Data Flow (Updated)
 
 ```
-                                    INBOUND
-                          Brand gets Client interest
+                                    INBOUND (Business OS)
+                          Lead/Client interest (optional)
                                      │
                                      ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  BUSINESS OS                                                     │
-│  ① Prospect → ② Service Catalog → ③ Order (Draft)               │
-│     │                                                            │
-│     ▼                                                            │
-│  ④ Invoice (DP) issued via Odoo → Client pays DP                 │
-│     │                                                            │
-│     ▼                                                            │
-│  ⑤ Order → Confirmed ─────────────────────┐                     │
-└───────────────────────────────────────────┼─────────────────────┘
-                                            │ ORDER CONFIRMED
-                                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  PROJECT OS                                                      │
-│  ⑥ Service Template defines Stages + Tasks                       │
-│     │                                                            │
-│     ▼                                                            │
-│  ⑦ Project created, populated with Stages + Tasks                │
-│     │                                                            │
-│     ▼                                                            │
-│  ⑧ Tasks posted to Board → Editor applies/is assigned            │
-│     │                                                            │
-│     ▼                                                            │
-│  ⑨ Editor completes Tasks → Delivery sent to Client              │
-│     │                                                            │
-│     ▼                                                            │
-│  ⑩ Client approves Delivery                                      │
-└───────────────────────────────────────────┬─────────────────────┘
-                                            │ CLIENT APPROVES
-                                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  HUMAN CAPITAL OS                                                │
-│  ⑪ Payout credited to Editor's Wallet                            │
-│  ⑫ Editor requests Withdrawal → Owner transfers manually        │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BUSINESS OS (Optional — installed per Organization)                    │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  ① Lead capture (if lead-management app installed)                │ │
+│  │  ② Client creation (if business-os installed)                    │ │
+│  │  ③ Service selection                                              │ │
+│  │  ④ Order (Draft → Confirmed)                                      │ │
+│  │  ⑤ Invoice via Odoo                                               │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                     │                                  │
+│                         ORDER CONFIRMED (optional)                     │
+│                                     ▼                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PROJECT OS (CORE — always active)                                       │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  ⑥ Project created (always possible, even without order)          │ │
+│  │     • From confirmed order (business flow)                         │ │
+│  │     • Direct creation (solo/creative flow)                        │ │
+│  │  ⑦ Stages + Tasks from Service template                           │ │
+│  │  ⑧ Tasks on Board → Editor applies/is assigned                    │ │
+│  │  ⑨ Tasks completed → Delivery sent (if Client Portal active)      │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     │
+                        CLIENT APPROVED (optional, if portal active)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  HUMAN CAPITAL OS (CORE — always active)                                │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  ⑩ Payout credited to Editor's Wallet                             │ │
+│  │  ⑪ Withdrawal requested → Owner transfers                        │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
 
                               ODOO (External)
-┌─────────────────────────────────────────────────────────────────┐
-│  Source of Truth for:                                            │
-│  • Clients (synced to Zenvas)                                    │
-│  • Invoices (synced to Zenvas)                                   │
-│  • Payments (status only, not duplicated in Zenvas)              │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Source of Truth (if odoo-sync app installed):                         │
+│  • res.partner (Clients) — synced to Zenvas                           │
+│  • account.move (Invoices) — synced to Zenvas                         │
+│  • account.payment (Payments) — status only                           │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# User Roles & What They See
+# User Roles & Permissions
 
 | Role | Sees | Can Do |
 |------|------|--------|
-| **Owner** | Everything: revenue, payout pool, client details | All operations |
-| **Manager** | Everything except Owner-only ops | Day-to-day ops |
-| **Editor** | ONLY their own Board, own Payout, own Tasks | Apply to board, complete assigned tasks |
-| **Client** | ONLY their own Project, their own Delivery | Track progress, approve delivery |
+| **Owner** | Everything (if authorized) | All operations, manage organization |
+| **Manager** | Project OS + Human Capital OS + (Business OS if authorized) | Day-to-day operations |
+| **Editor** | Project OS (assigned) + Human Capital OS (own tasks) | Apply to board, complete assigned tasks |
+| **Client** | Client Portal only (if hasClientPortal = true) | Track progress, approve delivery |
 
-> **Hard constraint (Financial Confidentiality):** Editor cannot see Order value, Client list, or internal Payout Budget pool.
->
-> **Hard constraint (Client Relationship):** Editor cannot contact Client directly. Only Owner/Manager can.
+### Permission Matrix by Feature
+
+| Feature | Owner | Manager | Editor | Client |
+|---------|-------|---------|--------|--------|
+| **Project OS** | | | | |
+| Create Project | ✅ | ✅ | ❌ | ❌ |
+| View Project | ✅ | ✅ | Assigned only | Own only |
+| Edit Tasks | ✅ | ✅ | Own only | ❌ |
+| **Human Capital OS** | | | | |
+| View Board | ✅ | ✅ | Own only | ❌ |
+| Payout/Wallet | ✅ (all) | ✅ (all) | Own only | ❌ |
+| **Business OS** | | | | |
+| View Clients | ✅ | ✅ | ❌ | ❌ |
+| View Orders | ✅ | ✅ | ❌ | ❌ |
+| View Invoices | ✅ | ✅ | ❌ | Own only (via portal) |
+| Client Portal | ✅ | ✅ | ❌ | Read/Approve only |
 
 ---
 
-# Module Architecture (Odoo-Inspired, Modern Stack)
+# Module Architecture
 
 ```
-ZENVAS CORE (always loaded, never disabled)
-├── Auth & Identity
-├── Organization management
-├── User management
-├── RBAC enforcement
-├── Activity Log (immutable)
+ZENVAS CORE (always loaded)
+├── Identity Layer
+│   ├── Organization management
+│   ├── User management
+│   ├── RBAC enforcement
+│   └── Activity Log (immutable)
 └── Module Registry
 
-MODULES (can be activated/deactivated)
-├── business-os          ← Phase 1 required
-├── project-os           ← Phase 1 required
-├── human-capital-os     ← Phase 1 required
-├── knowledge-engine     ← Phase 2
-├── review-and-approval  ← Phase 2
-├── subscription         ← Deferred
-└── ... future modules
+CORE MODULES (always installed)
+├── project-os
+│   ├── Models: Project, Stage, Task
+│   ├── Routes: /projects, /tasks, /board
+│   └── Dependencies: None
+│
+└── human-capital-os
+    ├── Models: User, Role, BrandAccess, Payout, Wallet
+    ├── Routes: /team, /board, /payout
+    └── Dependencies: None
 
-Each module:
-├── Has its own Prisma models (or shares core models)
-├── Registers its own routes/pages
-├── Declares dependencies on other modules
-└── Has feature flag in Organization settings
+OPTIONAL MODULES (App Store)
+├── business-os
+│   ├── Models: Client, Order, Invoice
+│   ├── Routes: /clients, /orders
+│   ├── Dependencies: project-os
+│   └── Features:
+│       ├── Client Portal (subdomain routing)
+│       ├── Order workflow
+│       └── Invoice management
+│
+├── lead-management
+│   ├── Models: Lead
+│   ├── Routes: /leads
+│   └── Dependencies: business-os
+│
+├── odoo-sync
+│   ├── Sync: res.partner, account.move
+│   └── Dependencies: business-os
+│
+└── knowledge-engine (Phase 2+)
+    ├── Models: KnowledgeEntry, Resource
+    └── Dependencies: project-os
+
+FEATURE FLAGS
+├── Organization-level: Installed apps
+├── Brand-level: hasClientPortal, domain
+└── User-level: Role, BrandAccess
 ```
 
 ---
@@ -165,105 +303,99 @@ Each module:
 # Integration Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        WORDPRESS (eatprayedit.com)               │
-│                        Landing + Marketing pages                 │
-│                        ┌──────────────────┐                     │
-│                        │  [Order Now]     │ ──────┐             │
-│                        └──────────────────┘       │             │
-└────────────────────────────────────────────────────┼─────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        WORDPRESS (optional)                             │
+│                        Landing + Marketing pages                        │
+│                        ┌──────────────────┐                             │
+│                        │  [Order Now]     │ ──────┐                     │
+│                        │  [Get a Quote]   │       │                     │
+│                        └──────────────────┘       │                     │
+└────────────────────────────────────────────────────┼─────────────────────┘
                                                      ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              ZENVAS CLIENT PORTAL (app.eatprayedit.com)          │
-│              ┌──────────────────────────────────────────┐        │
-│              │  Register / Login                        │        │
-│              │  Order Form (Intake from Service)        │        │
-│              │  Track Project Progress (Stage/Task)     │        │
-│              │  Approve Delivery                        │        │
-│              │  View Invoice (synced from Odoo)         │        │
-│              └──────────────────────────────────────────┘        │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│         CLIENT PORTAL (Optional — subdomain or custom domain)           │
+│         ┌──────────────────────────────────────────┐                    │
+│         │  Login / Track Progress / Approve        │                    │
+│         │  Available only if:                       │                    │
+│         │  • business-os app installed              │                    │
+│         │  • brand.hasClientPortal = true          │                    │
+│         └──────────────────────────────────────────┘                    │
+└─────────────────────────────────────────────────────────────────────────┘
                                 │
                                 │ (API Integration)
                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              ZENVAS APP (app.zenvas-internal.com or admin panel) │
-│              Owner / Manager / Editor workflows                  │
-│              Mission Control, Board, Payout, Wallet              │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    ZENVAS APP (Internal)                                │
+│                    app.zenvas.com / localhost                           │
+│                                                                         │
+│         ┌────────────────────────────────────────────┐                   │
+│         │  Owner / Manager / Editor workspaces       │                   │
+│         │                                             │                   │
+│         │  • Project OS always available             │                   │
+│         │  • Human Capital OS always available       │                   │
+│         │  • Business OS shown only if installed     │                   │
+│         └────────────────────────────────────────────┘                   │
+└─────────────────────────────────────────────────────────────────────────┘
                                 │
                                 │ (XML-RPC / JSON-RPC API)
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              ODOO (bisnis.kreatifproduction.com)                 │
-│              Contacts · CRM · Invoice · Payment · Accounting    │
-│              ┌──────────────────────────────────────────┐        │
-│              │  res.partner (Clients)                   │        │
-│              │  account.move (Invoices)                 │        │
-│              │  account.payment (Payments)              │        │
-│              └──────────────────────────────────────────┘        │
-└─────────────────────────────────────────────────────────────────┘
+                                ▼ (if odoo-sync installed)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         ODOO (External)                                 │
+│                         bisnis.kreatifproduction.com                     │
+│                         ┌──────────────────────────────────────────┐    │
+│                         │  res.partner (Clients)                   │    │
+│                         │  account.move (Invoices)                 │    │
+│                         │  account.payment (Payments)              │    │
+│                         └──────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# Phase 1 Scope (MVP)
+# Phase 1 Scope (Updated)
 
-Per `docs/MVP_ROADMAP.md`, only the core path is implemented:
+| Component | In Scope | Notes |
+|-----------|----------|-------|
+| **Identity Layer** | ✅ | Organization, User, RBAC |
+| **Project OS** | ✅ CORE | Always installed |
+| **Human Capital OS** | ✅ CORE | Always installed |
+| **Business OS** | ✅ Optional | Installable app |
+| **Client Portal** | ✅ Optional | Only if hasClientPortal = true |
+| **Free Subdomain** | ✅ | For brands without custom domain |
+| **Custom Domain** | ✅ Optional | User brings their own |
+| **App Store** | 🟡 Basic | Install/uninstall optional modules |
+| **Odoo Sync** | 🟡 Basic | Manual trigger OK |
 
-| Component | In Scope | Out of Scope (Phase 2+) |
-|-----------|----------|------------------------|
-| Brand | ✅ EPE Studio only | Balistory, Kreatif, Personal (data model ready) |
-| Service | ✅ Real Estate Edit (1-2) | More services |
-| Order | ✅ Draft → Confirmed → Completed | Proposal/Quotation |
-| Invoice | ✅ Odoo sync (manual trigger OK) | Full auto sync |
-| Client Portal | ✅ Read-only progress view | Full self-service |
-| Project | ✅ Service Template-based | Custom workflows |
-| Stage/Task | ✅ From template | Manual customization |
-| Stale Detection | ✅ Auto | Manual "Blocked" status |
-| Board | ✅ Single-editor Apply/Assign | Multi-editor Task split |
-| Payout | ✅ Manual allocation & withdrawal | Auto transfer |
-| Wallet | ✅ Manual withdrawal | Auto withdrawal |
-| Roles | ✅ Owner, Manager, Editor | Producer (deferred) |
-| Financial Confidentiality | ✅ Enforced at access-control | — |
-| Client Relationship Ownership | ✅ Enforced at access-control | — |
+### Out of Scope (Phase 2+)
 
----
-
-# What This Document Does NOT Define
-
-- **Page URLs** → see PAGE-FLOWS.md (next)
-- **Database schema details** → see DATA-MODELS.md
-- **API request/response shapes** → see API-CONTRACTS.md
-- **UI screens** → see MOCKUPS/
-- **Build order / file structure** → see IMPLEMENTATION-PLAN.md
+| Component | Status |
+|-----------|--------|
+| Knowledge Engine | Phase 2 |
+| Cast Management | Phase 2 |
+| Communication Module | Phase 2 |
+| Marketplace | Phase 3 |
+| White-label | Phase 3 |
 
 ---
 
-# Open Questions
+# Open Questions (Updated)
 
-1. ~~**Client subdomain routing**~~ → **RESOLVED, see ADR-0003.** Dynamic
-   per-Brand domain resolution via middleware, from day one.
+1. ~~**Client subdomain routing**~~ → **RESOLVED, ADR-0003.** Dynamic per-Brand domain resolution.
 
-2. ~~**Internal vs External app**~~ → **RESOLVED, see ADR-0003.** One
-   application, split by middleware into Client Portal context (per-Brand
-   domain) and Internal context (single internal domain).
+2. ~~**Internal vs External app**~~ → **RESOLVED, ADR-0003.** One application, split by middleware.
 
-3. ~~**Odoo sync timing**~~ → **RESOLVED, 2026-07-20.** Dual mechanism:
-   - **Auto-check:** System automatically checks Odoo status periodically
-   - **Manual trigger:** Owner/Manager can manually trigger sync
-   - **Error handling:** If Odoo is unreachable, notify Owner with error details
-   - See ADR-0001-odoo-integration.md for implementation details
+3. ~~**Odoo sync timing**~~ → **RESOLVED, ADR-0001.** Dual mechanism: auto-check + manual trigger.
 
-4. **Module Registry:** Real on/off toggle per Organization, or just feature
-   flags in code? → Recommendation: feature flags in code for Phase 1;
-   building a real dynamic registry now is premature for a single
-   Organization — revisit when Stage 2 (multi-tenant) gets closer.
+4. ~~**Multi-Brand UI**~~ → **RESOLVED, ADR-0005.** Brand selector in nav, per-brand feature flags.
 
-5. **Multi-Brand UI:** Single unified Brand selector, or per-Brand distinct
-   UI? → Deferred — not blocking Phase 1 (EPE only), decide when Balistory/
-   KreatifProduction come online.
+5. ~~**Business OS optionality**~~ → **RESOLVED, ADR-0005.** Modular architecture with App Store.
+
+6. **App Store UX:** How should users discover and install apps?
+   → Recommendation: Simple modal in Settings, shown when plan allows
+
+7. **Migration Path:** How to migrate from Solo → Growing → Agency?
+   → Recommendation: In-place upgrade, no data migration needed
 
 ---
 
-*Last updated: 2026-07-20*
+*Last updated: 2026-07-21*

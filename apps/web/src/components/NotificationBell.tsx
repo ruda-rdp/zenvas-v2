@@ -35,11 +35,31 @@ export function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    let ignore = false;
+
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/notifications?limit=10");
+        if (res.ok && !ignore) {
+          const data = await res.json();
+          setNotifications(data.notifications);
+          setUnreadCount(data.unreadCount);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("Error fetching notifications:", error);
+        }
+      }
+    }
+
+    loadNotifications();
     // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+    const interval = setInterval(loadNotifications, 30000);
+    return () => {
+      ignore = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const markAllAsRead = async () => {
     try {
@@ -189,7 +209,7 @@ export function NotificationBell() {
             {/* Footer */}
             <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
               <Link
-                href="/notifications"
+                href="/settings/notifications"
                 className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 onClick={() => setIsOpen(false)}
               >

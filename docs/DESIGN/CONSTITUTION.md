@@ -1,6 +1,6 @@
 # CONSTITUTION.md
 
-Status: Locked v1.0
+**Status:** Updated v1.1 (Reflects ADR-0005 Modular Architecture)
 
 Purpose: Rules that cannot be broken — by any feature, any deadline
 pressure, any agent (human or AI) working on Zenvas. Unlike
@@ -42,13 +42,14 @@ business continuity rule, not a courtesy.
 
 ---
 
-# 3. Order Before Project
+# 3. Order Before Project (Business OS Only)
 
-A Project can only be created once its Order reaches status `Confirmed`
-(DP received). No exceptions except Personal Brand, which has no Order at
-all.
+A Project can only be created from a confirmed Order (DP received) when using
+the Business OS flow. However, Solo Creators can create Projects directly
+without an Order — no exceptions needed, it's the default for brands with
+`hasClientPortal = false`.
 
-→ BUSINESS_OS.md (Customer Journey & Order Lifecycle)
+→ ADR-0005 (Modular Architecture), BUSINESS_OS.md (Customer Journey & Order Lifecycle)
 
 ---
 
@@ -136,6 +137,16 @@ categories per REFERENCES.md. Building these natively is scope creep, not
 ambition.
 
 → FOUNDATION.md ("What Zenvas Is Not"), ADR-0001, REFERENCES.md (Synthesis)
+
+---
+
+# 11. Core Modules Cannot Be Uninstalled
+
+Project OS and Human Capital OS are the foundation of Zenvas. They cannot
+be uninstalled — only optional modules (Business OS, Lead Management, etc.)
+can be added or removed via the App Store.
+
+→ ADR-0005 (Modular Architecture)
 
 ---
 

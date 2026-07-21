@@ -21,20 +21,20 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>(() => {
+    // Initialize from localStorage on first render (lazy initialization)
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme") as Theme | null;
+      return saved || "dark";
+    }
+    return "dark";
+  });
   const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
-    // Load saved theme
-    const saved = localStorage.getItem("theme") as Theme | null;
-    if (saved) {
-      setThemeState(saved);
-    }
-  }, []);
-
-  useEffect(() => {
+    // Sync with system preference on mount
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    
+
     function resolveTheme() {
       if (theme === "system") {
         setResolvedTheme(mediaQuery.matches ? "dark" : "light");

@@ -1,9 +1,10 @@
 # MVP_ROADMAP.md
 
-Status: Locked v1.0
+**Status:** Updated v2.0 (2026-07-21)
 
-Depends On: all locked foundation documents (CONTEXT.md, FOUNDATION.md,
-BUSINESS_OS.md, PROJECT_OS.md, HUMAN_CAPITAL_OS.md, KNOWLEDGE_ENGINE.md)
+**Previous:** v1.0 (Client-first approach)
+
+**Change Summary:** Refocused on Solo Creator first. Phase 1 is project management for filmmakers without requiring business features.
 
 ---
 
@@ -11,22 +12,96 @@ BUSINESS_OS.md, PROJECT_OS.md, HUMAN_CAPITAL_OS.md, KNOWLEDGE_ENGINE.md)
 
 The foundation documents define the full, correct shape of Zenvas. This
 document exists to prevent a common failure mode: trying to build all of it
-at once. Phase 1 takes **one complete, working path** through the system —
-Order → Project → Delivery → Payout — for one Brand (EPE Studio), and
-defers everything else explicitly.
+at once.
 
-Nothing deferred here is wrong or cancelled. It is designed, locked, and
-waiting. Phase 1 exists to get EPE Studio operational as fast as honestly
-possible without violating the foundation already agreed.
+**Updated Approach (v2.0):** Zenvas starts as project management for solo filmmakers. Business features are Phase 3, not Phase 1.
 
 ---
 
-# Phase 1 Goal
+# Three-Phase Roadmap
 
-**A Client can order a Real Estate video edit from EPE Studio, an Editor can
-be assigned and paid for it, and both the Client and the Owner can see
-progress in real time — without spreadsheets, WhatsApp status updates, or
-manual tracking.**
+## Phase 1: Solo Creator (CORE)
+**Focus:** Project & Task Management
+
+A solo filmmaker can:
+- Create projects
+- Manage stages and tasks
+- Track progress
+- Use script and storyboard tools
+
+> **This is complete on its own. No client required.**
+
+## Phase 2: Project OS Enhancement
+**Focus:** Filmmaker Tools
+
+Per-session deep development:
+- Script Writer module
+- Storyboard Canvas
+- Scene Breakdown
+- Production Templates
+- Calendar/Scheduling
+- And more...
+
+## Phase 3: Business OS (Optional)
+**Focus:** Client Management
+
+When ready, install Business OS:
+- Lead Management
+- Client Portal
+- Order Flow
+- Odoo Integration
+- Invoicing
+
+---
+
+# Phase 1 Goals
+
+**Primary:** A solo filmmaker can manage their creative projects without any client or business features.
+
+**Secondary:** A team can collaborate on projects with task assignment and payout tracking.
+
+---
+
+# Phase 1 In Scope
+
+**Project OS (CORE):**
+- Projects with Stages and Tasks
+- Subtask hierarchy (up to 4 levels deep)
+- Task categories (PRE_PRODUCTION, PRODUCTION, POST_PRODUCTION)
+- Script content (markdown storage - UI deferred to Phase 2)
+- Storyboard URLs (storage - visual canvas deferred to Phase 2)
+- Task status tracking
+
+**Human Capital OS (CORE):**
+- User with roles (Owner, Manager, Editor)
+- Team management
+- Board for task discovery
+- Apply/Assign workflow
+- Payout tracking
+- Wallet (manual withdrawal)
+
+**Human Capital OS (Minimal - Phase 1):**
+- Employment Type: Freelance only
+- Roles: Owner, Manager, Editor (Producer deferred)
+- Single-editor apply/assign
+
+---
+
+# Phase 1 Out of Scope
+
+**Explicitly deferred to Phase 2 or 3:**
+- Script Writer UI (storage exists, UI deferred)
+- Storyboard Canvas (URLs stored, visual deferred)
+- Lead Management (Phase 3)
+- Client Portal (Phase 3)
+- Order Flow (Phase 3)
+- Odoo Integration (Phase 3)
+- Proposal/Quotation (Phase 3)
+- Subscription Model (Phase 3+)
+- Clock-In/Out (Phase 3+)
+- Inhouse employment (Phase 3+)
+- Producer role (Phase 3+)
+- Budget Tracking (Phase 2)
 
 ---
 

@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canAccessBrand } from "@/lib/authorize";
 import { OrderStatus } from "@/generated/prisma";
 import { syncOrderDpInvoice, syncOrderFinalInvoice } from "@/lib/odoo";
 
@@ -83,6 +84,12 @@ export async function PATCH(
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Check brand access
+    const hasAccess = await canAccessBrand(order.brandId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "You don't have access to this order's brand" }, { status: 403 });
     }
 
     // Validate status transitions

@@ -1,91 +1,90 @@
+/**
+ * Rate Limiting Middleware
+ * 
+ * Protects auth endpoints from brute force attacks
+ * Uses in-memory store (use Redis for production scaling)
+ */
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// ADR-0003: Dynamic Brand-by-Domain Resolution, Single Application
+// Simple in-memory rate limiter (use Redis in production)
+const rateLimitStore = new Map<string, { count: number; timestamp: number }>();
 
-// Internal admin domain — configurable via environment variable
-const INTERNAL_DOMAIN = process.env.INTERNAL_DOMAIN || "app.zenvas.localhost";
-const INTERNAL_DOMAIN_ALT = process.env.INTERNAL_DOMAIN_ALT || "localhost";
+// Clean up old entries every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now - value.timestamp > 60000) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 60000);
 
-const INTERNAL_DOMAINS = [
-  INTERNAL_DOMAIN,
-  INTERNAL_DOMAIN_ALT,
-  "localhost",
-  "127.0.0.1",
-  "internal",
-];
+interface RateLimitConfig {
+  windowMs: number;
+  maxRequests: number;
+}
 
-const BRAND_DOMAINS: Record<string, string> = {
-  // Brand domain → brandId mapping (loaded from DB in real implementation)
-  "studio.eatprayedit.com": "brand_epe",
-  "app.eatprayedit.com": "brand_epe",
-  "studio.balistory.com": "brand_balistory",
-  "app.balistory.com": "brand_balistory",
-  "studio.kreatifproduction.com": "brand_kreatif",
-  "app.kreatifproduction.com": "brand_kreatif",
+const RATE_LIMITS: Record<string, RateLimitConfig> = {
+  "/api/auth/login": { windowMs: 60000, maxRequests: 5 }, // 5 attempts per minute
+  "/api/auth/register": { windowMs: 60000, maxRequests: 3 }, // 3 registrations per minute
+  "/api/auth/client/login": { windowMs: 60000, maxRequests: 5 },
 };
 
-export async function proxy(request: NextRequest) {
-  const hostname = request.headers.get("host") || "";
-  const pathname = request.nextUrl.pathname;
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  return request.headers.get("x-real-ip") || "unknown";
+}
 
-  // Extract the base domain (removing port if present)
-  const baseDomain = hostname.split(":")[0];
+function checkRateLimit(key: string, config: RateLimitConfig): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
 
-  // Determine if this is an internal app request
-  const isInternalDomain = INTERNAL_DOMAINS.includes(baseDomain);
+  if (!record || now - record.timestamp > config.windowMs) {
+    rateLimitStore.set(key, { count: 1, timestamp: now });
+    return { allowed: true, remaining: config.maxRequests - 1 };
+  }
 
-  // Check if this is a brand domain
-  const brandId = BRAND_DOMAINS[baseDomain];
+  if (record.count >= config.maxRequests) {
+    return { allowed: false, remaining: 0 };
+  }
 
-  // Set context headers for downstream use
-  const response = NextResponse.next();
+  record.count++;
+  return { allowed: true, remaining: config.maxRequests - record.count };
+}
+
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   
-  if (isInternalDomain) {
-    // Internal app context
-    response.headers.set("x-app-context", "internal");
-    response.headers.set("x-brand-id", "");
-  } else if (brandId) {
-    // Client Portal context
-    response.headers.set("x-app-context", "client-portal");
-    response.headers.set("x-brand-id", brandId);
-  } else {
-    // Unknown domain - return safe 404 or redirect
-    // In production, this should be a branded 404 page
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Check if path matches rate-limited routes
+  for (const [path, config] of Object.entries(RATE_LIMITS)) {
+    if (pathname === path) {
+      const ip = getClientIP(request);
+      const key = `${ip}:${path}`;
+      const { allowed, remaining } = checkRateLimit(key, config);
+
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          { status: 429, headers: { "Retry-After": "60" } }
+        );
+      }
+
+      // Add rate limit headers
+      const response = NextResponse.next();
+      response.headers.set("X-RateLimit-Remaining", remaining.toString());
+      response.headers.set("X-RateLimit-Limit", config.maxRequests.toString());
+      return response;
     }
-    // For pages, let it through but log for monitoring
-    console.warn(`[Middleware] Unknown domain: ${baseDomain}`);
   }
 
-  // Auth protection for internal routes
-  if (
-    !isInternalDomain &&
-    !brandId &&
-    !pathname.startsWith("/login") &&
-    !pathname.startsWith("/api/auth") &&
-    !pathname.startsWith("/_next") &&
-    !pathname.startsWith("/favicon")
-  ) {
-    // Redirect unknown domains to login or show 404
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
-  ],
+  matcher: ["/api/auth/login", "/api/auth/register", "/api/auth/client/login"],
 };

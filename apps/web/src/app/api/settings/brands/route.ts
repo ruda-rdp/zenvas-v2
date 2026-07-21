@@ -1,11 +1,36 @@
 /**
  * API: /api/settings/brands
- * Brand CRUD
+ * Brand CRUD with ADR-0005 Modular Architecture support
  */
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+
+// Constants for subdomain
+const FREE_SUBDOMAIN_SUFFIX = process.env.FREE_SUBDOMAIN_SUFFIX || "zenvas-portal.app";
+
+/**
+ * Generate a free subdomain from slug
+ * e.g., "jacob-film" → "jacobfilm.zenvas-portal.app"
+ */
+function generateFreeSubdomain(slug: string): string {
+  const normalizedSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return `${normalizedSlug}.${FREE_SUBDOMAIN_SUFFIX}`;
+}
+
+/**
+ * Generate slug from name
+ * e.g., "Jacob Film" → "jacob-film"
+ */
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 export async function GET() {
   const session = await auth();
@@ -16,6 +41,15 @@ export async function GET() {
   try {
     const brands = await prisma.brand.findMany({
       where: { organizationId: session.user.organizationId },
+      include: {
+        _count: {
+          select: {
+            clients: true,
+            orders: true,
+            projects: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -32,44 +66,68 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.role !== "OWNER") {
-    return NextResponse.json({ error: "Forbidden - Owner only" }, { status: 403 });
+  // Allow OWNER and MANAGER to create brands
+  if (session.user.role !== "OWNER" && session.user.role !== "MANAGER") {
+    return NextResponse.json({ error: "Forbidden - Owner or Manager only" }, { status: 403 });
   }
 
   try {
     const body = await request.json();
-    const { name, domain, primaryColor } = body;
+    const { name, slug: providedSlug, primaryColor, hasClientPortal } = body;
 
-    if (!name || !domain) {
+    if (!name) {
       return NextResponse.json(
-        { error: "Name and domain are required" },
+        { error: "Brand name is required" },
         { status: 400 }
       );
     }
 
-    // Check if domain is already taken
-    const existingBrand = await prisma.brand.findUnique({
-      where: { domain },
+    // Generate or use provided slug
+    const slug = providedSlug?.trim() || generateSlug(name);
+
+    // Sanitize slug
+    const sanitizedSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+
+    // Check if slug is already taken
+    const existingSlug = await prisma.brand.findUnique({
+      where: { slug: sanitizedSlug },
     });
 
-    if (existingBrand) {
+    if (existingSlug) {
       return NextResponse.json(
-        { error: "Domain already taken" },
+        { error: "Slug already taken. Please choose a different name." },
         { status: 400 }
       );
     }
 
+    // Determine hasClientPortal (default: false for Solo Creator mode)
+    const enableClientPortal = hasClientPortal === true;
+
+    // Generate free subdomain if client portal is enabled
+    const freeSubdomain = enableClientPortal ? generateFreeSubdomain(sanitizedSlug) : null;
+
+    // Create brand
     const brand = await prisma.brand.create({
       data: {
-        name,
-        domain,
+        name: name.trim(),
+        slug: sanitizedSlug,
         primaryColor: primaryColor || "#2563EB",
-        isPersonalBrand: false,
+        hasClientPortal: enableClientPortal,
+        freeSubdomain,
         organizationId: session.user.organizationId,
+      },
+      include: {
+        _count: {
+          select: {
+            clients: true,
+            orders: true,
+            projects: true,
+          },
+        },
       },
     });
 
-    // Auto-create default service for new brand
+    // Auto-create default service (always, regardless of client portal setting)
     await prisma.service.createMany({
       data: [
         {

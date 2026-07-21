@@ -1,7 +1,7 @@
 /**
  * API: /api/leads/[id]/convert
  * Convert Lead to Client (Business OS)
- * 
+ *
  * Per LEAD_MANAGEMENT.md:
  * - Lead → Qualified → Client
  * - Creates Client record + syncs to Odoo
@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canAccessBrand } from "@/lib/authorize";
 import { syncClientToOdoo } from "@/lib/odoo";
 import { LeadStatus } from "@/generated/prisma";
 
@@ -28,7 +29,7 @@ export async function POST(
 
   try {
     const { id } = await params;
-    
+
     // Get the lead
     const lead = await prisma.lead.findUnique({
       where: { id },
@@ -36,6 +37,12 @@ export async function POST(
 
     if (!lead) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+    }
+
+    // Check brand access
+    const hasAccess = await canAccessBrand(lead.brandId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "You don't have access to this lead's brand" }, { status: 403 });
     }
 
     if (lead.status === LeadStatus.CONVERTED) {

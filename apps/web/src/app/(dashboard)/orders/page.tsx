@@ -132,7 +132,7 @@ export default function OrdersPage() {
                     <div className="text-xs text-gray-400">{order.brand.name}</div>
                   </td>
                   <td className="px-6 py-4 text-gray-900">
-                    {order.service.price ? `Rp ${order.service.price.toLocaleString()}` : "-"}
+                    {order.service.price ? `Rp ${Number(order.service.price).toLocaleString("id-ID")}` : "-"}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs ${statusColors[order.status] || "bg-gray-100"}`}>

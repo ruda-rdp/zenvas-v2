@@ -99,9 +99,14 @@ export async function POST(request: Request) {
     }
 
     // No invite code = create own organization as OWNER
+    // Generate unique slug to avoid collision
+    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const uniqueSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    const orgSlug = `${baseSlug}-${uniqueSuffix}`;
     const organization = await prisma.organization.create({
       data: {
         name: `${name}'s Organization`,
+        slug: orgSlug,
       },
     });
 

@@ -83,8 +83,8 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const brandId = searchParams.get("brandId");
+    const body = await request.json();
+    const { brandId } = body;
 
     if (!brandId) {
       return NextResponse.json({ error: "brandId required" }, { status: 400 });

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 
@@ -14,9 +15,19 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // Fetch installed apps for the organization
+  let installedApps: string[] = [];
+  if (session.user.organizationId) {
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { apps: true },
+    });
+    installedApps = org?.apps || [];
+  }
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
-      <DashboardSidebar user={session.user} />
+      <DashboardSidebar user={session.user} installedApps={installedApps} />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header with Notifications */}
         <header className="h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-4">

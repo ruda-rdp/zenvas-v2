@@ -15,12 +15,18 @@ interface Lead {
   budget: string | null;
   createdAt: string;
   brand: {
+    id: string;
     name: string;
   };
   client?: {
     id: string;
     name: string;
   };
+}
+
+interface Brand {
+  id: string;
+  name: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -32,15 +38,9 @@ const statusColors: Record<string, string> = {
   WON: "bg-green-100 text-green-800",
 };
 
-const priorityColors: Record<string, string> = {
-  LOW: "text-gray-500",
-  MEDIUM: "text-yellow-600",
-  HIGH: "text-orange-600",
-  URGENT: "text-red-600",
-};
-
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
@@ -52,18 +52,46 @@ export default function LeadsPage() {
     source: "WEBSITE_FORM",
     interest: "",
     budget: "",
-    brandId: "brand_epe",
+    brandId: "",
   });
 
   useEffect(() => {
-    fetchLeads();
+    // Inline fetch to avoid stale closures
+    async function loadData() {
+      setLoading(true);
+      try {
+        const url = filter === "all"
+          ? "/api/leads"
+          : `/api/leads?status=${filter}`;
+        const [leadsRes, brandsRes] = await Promise.all([
+          fetch(url),
+          fetch("/api/settings/brands"),
+        ]);
+
+        if (leadsRes.ok) {
+          const leadsData = await leadsRes.json();
+          setLeads(leadsData.leads || []);
+        }
+
+        if (brandsRes.ok) {
+          const brandsData = await brandsRes.json();
+          setBrands(brandsData.brands || []);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
   }, [filter]);
 
   async function fetchLeads() {
     setLoading(true);
     try {
-      const url = filter === "all" 
-        ? "/api/leads" 
+      const url = filter === "all"
+        ? "/api/leads"
         : `/api/leads?status=${filter}`;
       const res = await fetch(url);
       const data = await res.json();
@@ -75,17 +103,32 @@ export default function LeadsPage() {
     }
   }
 
+  async function fetchBrands() {
+    try {
+      const res = await fetch("/api/settings/brands");
+      if (res.ok) {
+        const data = await res.json();
+        setBrands(data.brands || []);
+      }
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+    }
+  }
+
   async function handleConvert(leadId: string) {
     if (!confirm("Convert this lead to a client?")) return;
-    
+
     try {
       const res = await fetch(`/api/leads/${leadId}/convert`, {
         method: "POST",
       });
-      
+
       if (res.ok) {
         alert("Lead converted to client!");
         fetchLeads();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Failed to convert lead");
       }
     } catch (error) {
       console.error("Error converting lead:", error);
@@ -94,20 +137,30 @@ export default function LeadsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!formData.brandId) {
+      alert("Please select a brand");
+      return;
+    }
+
     try {
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      
+
       if (res.ok) {
         setFormData({
           name: "", email: "", phone: "", company: "",
-          source: "WEBSITE_FORM", interest: "", budget: "", brandId: "brand_epe"
+          source: "WEBSITE_FORM", interest: "", budget: "",
+          brandId: brands[0]?.id || ""
         });
         setShowForm(false);
         fetchLeads();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Failed to create lead");
       }
     } catch (error) {
       console.error("Error creating lead:", error);
@@ -144,6 +197,22 @@ export default function LeadsPage() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand *</label>
+                <select
+                  value={formData.brandId}
+                  onChange={(e) => setFormData({ ...formData, brandId: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="">Select brand...</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id}>{brand.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
                   type="email"
@@ -152,8 +221,6 @@ export default function LeadsPage() {
                   className="w-full px-3 py-2 border rounded-lg"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input
@@ -163,6 +230,8 @@ export default function LeadsPage() {
                   className="w-full px-3 py-2 border rounded-lg"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
                 <input
@@ -172,8 +241,6 @@ export default function LeadsPage() {
                   className="w-full px-3 py-2 border rounded-lg"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Source *</label>
                 <select
@@ -189,6 +256,8 @@ export default function LeadsPage() {
                   <option value="OTHER">Other</option>
                 </select>
               </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Interest *</label>
                 <input
@@ -254,6 +323,7 @@ export default function LeadsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brand</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interest</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -268,6 +338,9 @@ export default function LeadsPage() {
                     <div className="text-sm text-gray-500">
                       {lead.email || lead.phone || "No contact"}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">
+                    {lead.brand?.name || "-"}
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">
                     {lead.source.replace("_", " ")}

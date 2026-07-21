@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
@@ -8,7 +8,7 @@ import { signIn } from "next-auth/react";
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const inviteCode = searchParams.get("code");
 
   const [name, setName] = useState("");
@@ -17,13 +17,9 @@ function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isInviteFlow, setIsInviteFlow] = useState(false);
 
-  useEffect(() => {
-    if (inviteCode) {
-      setIsInviteFlow(true);
-    }
-  }, [inviteCode]);
+  // Derive isInviteFlow from inviteCode directly
+  const isInviteFlow = !!inviteCode;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +81,7 @@ function RegisterForm() {
           {isInviteFlow && (
             <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-sm">
               <span className="mr-1">🎉</span>
-              You've been invited to join a team
+              You&apos;ve been invited to join a team
             </div>
           )}
         </div>
