@@ -39,12 +39,6 @@ export async function POST(
         stage: {
           include: {
             project: {
-              select: {
-                id: true,
-                name: true,
-                orderId: true,
-                brandId: true,
-              },
               include: {
                 order: {
                   select: { brandId: true },
