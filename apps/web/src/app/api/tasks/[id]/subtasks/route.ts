@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canAccessBrand } from "@/lib/authorize";
 import { validateTaskDepth } from "@/lib/authorize";
 import { TaskStatus } from "@/generated/prisma";
 
@@ -26,7 +27,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // Get the parent task
+    // Get the parent task with full hierarchy
     const parentTask = await prisma.task.findUnique({
       where: { id },
       include: {
@@ -51,7 +52,13 @@ export async function GET(
         },
         stage: {
           include: {
-            project: true,
+            project: {
+              include: {
+                order: {
+                  select: { brandId: true },
+                },
+              },
+            },
           },
         },
       },
@@ -59,6 +66,17 @@ export async function GET(
 
     if (!parentTask) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // For OWNER/MANAGER, check brand access - resolve brandId with fallback
+    if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
+      const brandId = parentTask.stage.project.brandId ?? parentTask.stage.project.order?.brandId;
+      if (brandId) {
+        const hasAccess = await canAccessBrand(brandId);
+        if (!hasAccess) {
+          return NextResponse.json({ error: "You don't have access to this task" }, { status: 403 });
+        }
+      }
     }
 
     // For Editors, check if they can view this task
@@ -111,7 +129,13 @@ export async function POST(
       include: {
         stage: {
           include: {
-            project: true,
+            project: {
+              include: {
+                order: {
+                  select: { brandId: true },
+                },
+              },
+            },
           },
         },
       },
@@ -119,6 +143,17 @@ export async function POST(
 
     if (!parentTask) {
       return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
+    }
+
+    // For OWNER/MANAGER, check brand access - resolve brandId with fallback
+    if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
+      const brandId = parentTask.stage.project.brandId ?? parentTask.stage.project.order?.brandId;
+      if (brandId) {
+        const hasAccess = await canAccessBrand(brandId);
+        if (!hasAccess) {
+          return NextResponse.json({ error: "You don't have access to this task" }, { status: 403 });
+        }
+      }
     }
 
     // Check permissions

@@ -36,7 +36,13 @@ export async function POST(
       include: {
         stage: {
           include: {
-            project: true,
+            project: {
+              include: {
+                order: {
+                  select: { brandId: true },
+                },
+              },
+            },
           },
         },
       },
@@ -62,9 +68,10 @@ export async function POST(
       );
     }
 
-    // Check if editor has access to this brand
-    if (task.stage.project.brandId) {
-      const hasAccess = await canAccessBrand(task.stage.project.brandId);
+    // Check if editor has access to this brand - resolve brandId with fallback
+    const brandId = task.stage.project.brandId ?? task.stage.project.order?.brandId;
+    if (brandId) {
+      const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
         return NextResponse.json(
           { error: "You don't have access to this brand's tasks" },
@@ -80,19 +87,28 @@ export async function POST(
         include: {
           stage: {
             include: {
-              project: true,
+              project: {
+                include: {
+                  order: {
+                    select: { brandId: true },
+                  },
+                },
+              },
             },
           },
         },
       });
 
-      if (parentTask && parentTask.stage.project.brandId) {
-        const hasParentAccess = await canAccessBrand(parentTask.stage.project.brandId);
-        if (!hasParentAccess) {
-          return NextResponse.json(
-            { error: "You don't have access to this task's parent project" },
-            { status: 403 }
-          );
+      if (parentTask) {
+        const parentBrandId = parentTask.stage.project.brandId ?? parentTask.stage.project.order?.brandId;
+        if (parentBrandId) {
+          const hasParentAccess = await canAccessBrand(parentBrandId);
+          if (!hasParentAccess) {
+            return NextResponse.json(
+              { error: "You don't have access to this task's parent project" },
+              { status: 403 }
+            );
+          }
         }
       }
     }

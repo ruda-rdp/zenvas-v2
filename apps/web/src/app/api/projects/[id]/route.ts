@@ -59,9 +59,10 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Check brand access
-    if (project.brandId) {
-      const hasAccess = await canAccessBrand(project.brandId);
+    // Check brand access - resolve brandId with fallback to order.brandId
+    const brandId = project.brandId ?? project.order?.brandId;
+    if (brandId) {
+      const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
         return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
       }
@@ -93,15 +94,19 @@ export async function PATCH(
     const body = await request.json();
     const { name, description, posterUrl, posterAspect } = body;
 
-    // Check project exists
-    const existing = await prisma.project.findUnique({ where: { id } });
+    // Check project exists with order include for brandId resolution
+    const existing = await prisma.project.findUnique({ 
+      where: { id },
+      include: { order: { select: { brandId: true } } }
+    });
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Check brand access
-    if (existing.brandId) {
-      const hasAccess = await canAccessBrand(existing.brandId);
+    // Check brand access - resolve brandId with fallback to order.brandId
+    const brandId = existing.brandId ?? existing.order?.brandId;
+    if (brandId) {
+      const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
         return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
       }
@@ -159,15 +164,19 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Check project exists and get brandId
-    const existing = await prisma.project.findUnique({ where: { id } });
+    // Check project exists with order include for brandId resolution
+    const existing = await prisma.project.findUnique({ 
+      where: { id },
+      include: { order: { select: { brandId: true } } }
+    });
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Check brand access
-    if (existing.brandId) {
-      const hasAccess = await canAccessBrand(existing.brandId);
+    // Check brand access - resolve brandId with fallback to order.brandId
+    const brandId = existing.brandId ?? existing.order?.brandId;
+    if (brandId) {
+      const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
         return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
       }
