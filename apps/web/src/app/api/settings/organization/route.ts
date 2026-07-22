@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { hasBusinessOS, getVisibleNavItems } from "@/lib/features";
+import { getVisibleNavItems } from "@/lib/features";
 
 export async function GET() {
   const session = await auth();
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       }
 
       // Build update data
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (name !== undefined) updateData.name = name;
       if (plan !== undefined) updateData.plan = plan;
 
@@ -148,14 +148,13 @@ export async function PATCH(request: Request) {
     }
 
     // Build update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (plan !== undefined) updateData.plan = plan;
 
     // Apps modification
     if (apps !== undefined) {
-      const coreApps = ["project-os", "human-capital-os"];
-      const newApps = [...coreApps];
+      const newApps: string[] = ["project-os", "human-capital-os"];
 
       // Add optional apps
       if (apps.includes("business-os") && !newApps.includes("business-os")) {

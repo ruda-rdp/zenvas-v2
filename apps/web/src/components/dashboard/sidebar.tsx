@@ -9,8 +9,6 @@ import {
   FolderKanban,
   Users,
   Target,
-  UserCircle,
-  CreditCard,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -72,7 +70,6 @@ export function DashboardSidebar({ user, installedApps = [] }: SidebarProps) {
 
   // Set mounted on first render for hydration
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -80,10 +77,10 @@ export function DashboardSidebar({ user, installedApps = [] }: SidebarProps) {
   useEffect(() => {
     const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (saved !== null && isCollapsed !== (saved === "true")) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsCollapsed(saved === "true");
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally only run on mount to sync from localStorage
 
   // Save collapsed state to localStorage
   useEffect(() => {

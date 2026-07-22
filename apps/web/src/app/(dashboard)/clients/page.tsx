@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Debounce hook
@@ -84,17 +84,7 @@ export default function ClientsPage() {
     router.replace(newUrl, { scroll: false });
   }, [debouncedSearch, brandFilter, router]);
 
-  useEffect(() => {
-    fetchClients(true);
-    fetchBrands();
-  }, []);
-
-  // Re-fetch when filters change (debounced)
-  useEffect(() => {
-    fetchClients(true);
-  }, [debouncedSearch, brandFilter]);
-
-  async function fetchClients(reset: boolean = false) {
+  const fetchClients = useCallback(async (reset: boolean = false) => {
     if (reset) {
       setLoading(true);
     } else {
@@ -124,17 +114,24 @@ export default function ClientsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }
+  }, [debouncedSearch, brandFilter, pagination.nextCursor]);
 
-  async function fetchBrands() {
+  const fetchBrands = useCallback(async () => {
     try {
       const res = await fetch("/api/settings/brands");
-      const data = await res.json();
-      setBrands(data.brands || []);
+      if (res.ok) {
+        const data = await res.json();
+        setBrands(data.brands || []);
+      }
     } catch (error) {
       console.error("Error fetching brands:", error);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchClients(true);
+    fetchBrands();
+  }, [fetchClients, fetchBrands]);
 
   const filteredClients = clients; // Already filtered server-side
 

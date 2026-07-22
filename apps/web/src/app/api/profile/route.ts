@@ -6,9 +6,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import bcrypt from "bcryptjs";
-
-const SALT_ROUNDS = 12;
 
 // GET /api/profile - Get current user profile
 export async function GET() {

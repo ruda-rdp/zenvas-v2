@@ -12,7 +12,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
-import { syncOrderDpInvoice } from "@/lib/odoo";
 import { OrderStatus } from "@/generated/prisma";
 
 // GET /api/orders - List all orders

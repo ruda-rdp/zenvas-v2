@@ -117,7 +117,8 @@ export async function canAccessBusinessFeatures(
 export async function getVisibleNavItems(
   organizationId: string,
   brandId: string | null,
-  userRole: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userRole: string // Reserved for future role-based filtering
 ): Promise<{
   items: string[];
   businessItems: string[];
@@ -176,7 +177,6 @@ export async function resolveBrandFromHost(host: string): Promise<string | null>
   // Check for free subdomain pattern
   const freeSubdomainSuffix = process.env.FREE_SUBDOMAIN_SUFFIX || "zenvas-portal.app";
   if (hostname.endsWith(`.${freeSubdomainSuffix}`)) {
-    const slug = hostname.replace(`.${freeSubdomainSuffix}`, "");
     const brand = await prisma.brand.findUnique({
       where: { freeSubdomain: hostname },
       select: { id: true, hasClientPortal: true },

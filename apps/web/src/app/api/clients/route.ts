@@ -11,6 +11,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
 import { syncClientToOdoo } from "@/lib/odoo";
+import type { Prisma } from "@/generated/prisma";
 
 // GET /api/clients - List all clients for user's accessible brands
 // Supports cursor-based pagination
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     const accessibleBrands = await getAccessibleBrandIds();
 
     // Build where clause
-    const whereClause: any = {
+    const whereClause: Prisma.ClientWhereInput = {
       brandId: {
         in: accessibleBrands,
       },
@@ -73,7 +74,8 @@ export async function GET(request: Request) {
     const safeClients = results.map((client) => {
       if (session.user.role === "EDITOR") {
         // Strip email & phone for Editors
-        const { email, phone, ...safe } = client;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { email: _email, phone: _phone, ...safe } = client;
         return safe;
       }
       return client;

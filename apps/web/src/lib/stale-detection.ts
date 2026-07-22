@@ -10,7 +10,8 @@
  * This ensures Mission Control always shows fresh data.
  */
 
-import type { TaskStatus, Task } from "@/generated/prisma";
+import type { Task } from "@/generated/prisma";
+import type { PrismaClient } from "@/generated/prisma";
 
 /**
  * How stale detection works:
@@ -139,12 +140,12 @@ export function calculateStaleness(
  * 
  * FIXED: Supports both solo projects (project.brandId) and order-based projects (project.order.brandId)
  */
-export async function getStaleTasks(prisma: any, brandId: string): Promise<StaleTaskInfo[]> {
+export async function getStaleTasks(db: PrismaClient, brandId: string): Promise<StaleTaskInfo[]> {
   const now = new Date();
 
   // Get all tasks that are OPEN or IN_PROGRESS
   // Supports both solo projects (project.brandId) and order-based projects (project.order.brandId)
-  const tasks = await prisma.task.findMany({
+  const tasks = await db.task.findMany({
     where: {
       OR: [
         {
@@ -218,12 +219,12 @@ export async function getStaleTasks(prisma: any, brandId: string): Promise<Stale
  * FIXED: projectName from project.name instead of project.order.service.name
  */
 export async function getProjectStaleTasks(
-  prisma: any,
+  db: PrismaClient,
   projectId: string
 ): Promise<StaleTaskInfo[]> {
   const now = new Date();
 
-  const tasks = await prisma.task.findMany({
+  const tasks = await db.task.findMany({
     where: {
       stage: {
         projectId: projectId,
@@ -280,10 +281,10 @@ export async function getProjectStaleTasks(
  * Get stale tasks for a specific user (Editor)
  * FIXED: projectName from project.name instead of project.order.service.name
  */
-export async function getUserStaleTasks(prisma: any, userId: string): Promise<StaleTaskInfo[]> {
+export async function getUserStaleTasks(db: PrismaClient, userId: string): Promise<StaleTaskInfo[]> {
   const now = new Date();
 
-  const tasks = await prisma.task.findMany({
+  const tasks = await db.task.findMany({
     where: {
       assigneeUserId: userId,
       status: {
@@ -340,14 +341,14 @@ export async function getUserStaleTasks(prisma: any, userId: string): Promise<St
  * 
  * FIXED: Supports both solo projects and order-based projects via OR
  */
-export async function getStaleTaskCounts(prisma: any, brandId: string): Promise<{
+export async function getStaleTaskCounts(db: PrismaClient, brandId: string): Promise<{
   total: number;
   normal: number;
   warning: number;
   stale: number;
   critical: number;
 }> {
-  const staleTasks = await getStaleTasks(prisma, brandId);
+  const staleTasks = await getStaleTasks(db, brandId);
 
   const counts = {
     total: staleTasks.length,
@@ -376,7 +377,7 @@ export async function getStaleTaskCounts(prisma: any, brandId: string): Promise<
 
   // Add normal tasks count - supports both solo and order-based projects
   counts.normal = (
-    await prisma.task.count({
+    await db.task.count({
       where: {
         OR: [
           {

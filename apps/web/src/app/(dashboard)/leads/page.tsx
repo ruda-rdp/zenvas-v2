@@ -103,18 +103,6 @@ export default function LeadsPage() {
     }
   }
 
-  async function fetchBrands() {
-    try {
-      const res = await fetch("/api/settings/brands");
-      if (res.ok) {
-        const data = await res.json();
-        setBrands(data.brands || []);
-      }
-    } catch (error) {
-      console.error("Error fetching brands:", error);
-    }
-  }
-
   async function handleConvert(leadId: string) {
     if (!confirm("Convert this lead to a client?")) return;
 

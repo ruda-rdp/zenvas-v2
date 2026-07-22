@@ -1,7 +1,7 @@
 /**
  * API: /api/projects
  * CRUD for Projects (Project OS)
- * 
+ *
  * Per BUSINESS_OS.md: Project created only after Order is CONFIRMED
  * Per PROJECT_OS.md: Project → Stage → Task hierarchy
  */
@@ -9,30 +9,26 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { can, getAccessibleBrandIds } from "@/lib/authorize";
+import { getAccessibleBrandIds } from "@/lib/authorize";
 
 // GET /api/projects - List all projects for user's organization
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { searchParams } = new URL(request.url);
-    const statusFilter = searchParams.get("status");
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
-    const skip = (page - 1) * limit;
-
     // Get user's organization
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { organizationId: true },
     });
 
+    const defaultPagination = { page: 1, limit: 20, total: 0, totalPages: 0 };
+
     if (!user?.organizationId) {
-      return NextResponse.json({ projects: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      return NextResponse.json({ projects: [], pagination: defaultPagination });
     }
 
     // Get all brands in this organization
@@ -43,7 +39,7 @@ export async function GET(request: Request) {
     const brandIds = orgBrands.map(b => b.id);
 
     if (brandIds.length === 0) {
-      return NextResponse.json({ projects: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      return NextResponse.json({ projects: [], pagination: defaultPagination });
     }
 
     // Build where clause - projects from brands in user's organization
@@ -56,14 +52,10 @@ export async function GET(request: Request) {
         { brandId: { in: brandIds }, orderId: null },
       ],
     };
-    
-    // Optional status filter (only for projects with orders)
-    if (statusFilter) {
-      where.OR = [
-        { order: { brandId: { in: brandIds }, status: statusFilter } },
-        { brandId: { in: brandIds }, orderId: null },
-      ];
-    }
+
+    const page = 1;
+    const limit = 20;
+    const skip = 0;
 
     // Get total count for pagination
     const total = await prisma.project.count({ where });

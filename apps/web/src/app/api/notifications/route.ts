@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const unreadOnly = searchParams.get("unreadOnly") === "true";
 
-    const where: any = {
+    const where: Prisma.NotificationWhereInput = {
       userId: session.user.id,
     };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { usePresence } from "@/components/PresenceProvider";
 
@@ -42,9 +42,7 @@ export default function TeamPage() {
 
   const isOwner = session?.user?.role === "OWNER";
 
-  useEffect(() => { fetchTeamData(); }, []);
-
-  async function fetchTeamData() {
+  const fetchTeamData = useCallback(async () => {
     setLoading(true);
     try {
       const [usersRes, brandsRes, invitesRes] = await Promise.all([
@@ -57,7 +55,9 @@ export default function TeamPage() {
       if (invitesRes.ok) setInvites((await invitesRes.json()).inviteCodes || []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }
+  }, [isOwner]);
+
+  useEffect(() => { fetchTeamData(); }, [fetchTeamData]);
 
   async function createUserDirect() {
     if (!newUser.name || !newUser.email) return;

@@ -73,9 +73,9 @@ export async function GET(request: Request) {
       availableWhere.category = category;
     }
 
-    // Count totals for pagination
-    const totalAssigned = await prisma.task.count({ where: assignedWhere });
-    const totalAvailable = await prisma.task.count({ where: availableWhere });
+    // Note: totals are available for future pagination use
+    // const totalAssigned = await prisma.task.count({ where: assignedWhere });
+    // const totalAvailable = await prisma.task.count({ where: availableWhere });
 
     // Fetch assigned tasks with pagination
     const assignedTasks = await prisma.task.findMany({

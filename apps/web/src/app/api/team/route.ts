@@ -10,7 +10,7 @@ import { Role } from "@/generated/prisma";
 import { hash } from "bcryptjs";
 
 // GET /api/team - List all team members in organization
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -79,15 +79,17 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { 
-      name, 
-      email, 
+    const {
+      name,
+      email,
       phone,
-      role = "EDITOR", 
+      role = "EDITOR",
       employmentType = "FREELANCE",
       password,
       brandIds = [],
-      sendWelcomeEmail = false
+      // TODO: Implement welcome email feature
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      sendWelcomeEmail: _sendWelcomeEmail = false
     } = body;
 
     // Validation

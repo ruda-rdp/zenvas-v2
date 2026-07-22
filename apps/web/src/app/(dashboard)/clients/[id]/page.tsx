@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -12,16 +13,33 @@ interface Client {
   phone?: string;
   createdAt: string;
   brand: { id: string; name: string; primaryColor?: string };
-  orders: any[];
-  contacts: any[];
+  orders: Order[];
+  contacts: Contact[];
   _count: { orders: number; leads: number };
   odooPartnerId?: string;
+}
+
+interface Order {
+  id: string;
+  status: string;
+  service: { name: string; price: number | string };
+  project?: { id: string; name: string };
+  createdAt: string;
+}
+
+interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role?: string;
+  canApproveDelivery?: boolean;
 }
 
 interface ActivityLog {
   id: string;
   type: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
   createdAt: string;
   userId: string | null;
   user?: {
@@ -61,7 +79,7 @@ export default function ClientDetailPage({
   const [client, setClient] = useState<Client | null>(null);
   const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "orders" | "contacts" | "activity">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "orders" | "contacts" | "activity">("overview");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -70,11 +88,7 @@ export default function ClientDetailPage({
   const canEdit = session?.user?.role === "OWNER" || session?.user?.role === "MANAGER";
   const canDelete = session?.user?.role === "OWNER";
 
-  useEffect(() => {
-    fetchClient();
-  }, [id]);
-
-  async function fetchClient() {
+  const fetchClient = useCallback(async () => {
     try {
       const res = await fetch(`/api/clients/${id}`);
       if (!res.ok) {
@@ -88,7 +102,11 @@ export default function ClientDetailPage({
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    fetchClient();
+  }, [fetchClient]);
 
   async function syncToOdoo() {
     setSyncing(true);
@@ -159,7 +177,7 @@ export default function ClientDetailPage({
 
   const brandColor = client.brand.primaryColor || "#2563EB";
 
-  const tabs = [
+  const tabs: Array<{ id: "overview" | "orders" | "contacts" | "activity"; label: string }> = [
     { id: "overview", label: "Overview" },
     { id: "orders", label: `Orders (${client._count.orders})` },
     { id: "contacts", label: `Contacts (${client.contacts.length})` },
@@ -276,7 +294,7 @@ export default function ClientDetailPage({
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? "border-[#2563EB] text-[#2563EB]"
@@ -333,9 +351,9 @@ export default function ClientDetailPage({
               <div className="space-y-3">
                 {activity.slice(0, 5).map((log) => (
                   <div key={log.id} className="flex gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium overflow-hidden">
+                    <div className="relative w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium overflow-hidden">
                       {log.user?.avatarUrl ? (
-                        <img src={log.user.avatarUrl} alt={log.user.name} className="w-full h-full object-cover" />
+                        <Image src={log.user.avatarUrl} alt={log.user.name} fill className="object-cover" />
                       ) : (
                         <span>{log.user?.name?.charAt(0).toUpperCase() || "?"}</span>
                       )}
@@ -375,13 +393,13 @@ export default function ClientDetailPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {client.orders.map((order: any) => (
+                {client.orders.map((order: Order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="font-medium">{order.service?.name || "—"}</div>
                       {order.service?.price && session?.user?.role !== "EDITOR" && (
                         <div className="text-sm text-gray-500">
-                          Rp {parseFloat(order.service.price).toLocaleString()}
+                          Rp {typeof order.service.price === 'string' ? parseFloat(order.service.price).toLocaleString() : order.service.price.toLocaleString()}
                         </div>
                       )}
                     </td>
@@ -422,7 +440,7 @@ export default function ClientDetailPage({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {client.contacts.map((contact: any) => (
+              {client.contacts.map((contact: Contact) => (
                 <div key={contact.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="font-semibold">{contact.name}</div>
                   <div className="text-sm text-gray-600">{contact.email}</div>
@@ -452,9 +470,9 @@ export default function ClientDetailPage({
             <div className="space-y-4">
               {activity.map((log) => (
                 <div key={log.id} className="flex gap-3 pb-4 border-b border-gray-100 last:border-0">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium overflow-hidden flex-shrink-0">
+                  <div className="relative w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium overflow-hidden flex-shrink-0">
                     {log.user?.avatarUrl ? (
-                      <img src={log.user.avatarUrl} alt={log.user.name} className="w-full h-full object-cover" />
+                      <Image src={log.user.avatarUrl} alt={log.user.name} fill className="object-cover" />
                     ) : (
                       <span>{log.user?.name?.charAt(0).toUpperCase() || "?"}</span>
                     )}

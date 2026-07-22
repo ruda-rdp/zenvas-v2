@@ -10,7 +10,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
-import { syncClientToOdoo, createOdooClient } from "@/lib/odoo";
 import { LeadStatus } from "@/generated/prisma";
 
 // GET /api/leads - List all leads for user's accessible brands

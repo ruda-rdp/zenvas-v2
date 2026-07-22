@@ -88,18 +88,10 @@ export async function POST(
     }
 
     // Verify the target user has access to this brand (if brand-specific)
+    // Note: Brand access check is informational; Owner/Manager can assign to anyone
     if (task.stage.project.brandId) {
-      const userBrandAccess = await prisma.brandAccess.findUnique({
-        where: {
-          userId_brandId: {
-            userId,
-            brandId: task.stage.project.brandId,
-          },
-        },
-      });
-
-      // Owner/Manager can assign to anyone, but we should warn if user doesn't have access
-      // For now, we allow it but the editor won't see the task on their board
+      // Future: could warn if user doesn't have brand access
+      void task.stage.project.brandId; // Reference to avoid unused warning
     }
 
     // Build update data
@@ -114,7 +106,7 @@ export async function POST(
     }
 
     // Update the task
-    const updatedTask = await prisma.task.update({
+    await prisma.task.update({
       where: { id },
       data: updateData,
     });

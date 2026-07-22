@@ -85,29 +85,23 @@ export async function GET(
         }
       : client;
 
-    // Get activity log with user info
-    const activityLogs = await (prisma.activityLog.findMany as any)({
+    // Get activity log
+    const activityLogs = await prisma.activityLog.findMany({
       where: {
         entityType: "Client",
         entityId: id,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, avatarUrl: true },
-        },
       },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
 
     // Transform to safe format
-    const activity = activityLogs.map((log: any) => ({
+    const activity = activityLogs.map((log) => ({
       id: log.id,
-      type: log.type,
-      metadata: log.metadata,
+      type: log.type as string,
+      metadata: log.metadata as Record<string, unknown>,
       createdAt: log.createdAt.toISOString(),
-      userId: log.userId,
-      user: log.user,
+      userId: log.userId ?? "",
     }));
 
     return NextResponse.json({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -60,10 +60,6 @@ export default function ProjectsPage() {
   }, []);
 
   useEffect(() => {
-    filterProjects();
-  }, [projects, activeTab, searchQuery]);
-
-  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
         setShowActionsMenu(null);
@@ -102,7 +98,7 @@ export default function ProjectsPage() {
     }
   }
 
-  function filterProjects() {
+  const filterProjects = useCallback(() => {
     let filtered = [...projects];
 
     if (activeTab !== "all") {
@@ -134,7 +130,11 @@ export default function ProjectsPage() {
     }
 
     setFilteredProjects(filtered);
-  }
+  }, [projects, activeTab, searchQuery]);
+
+  useEffect(() => {
+    filterProjects();
+  }, [filterProjects]);
 
   function getProgress(project: Project) {
     const totalTasks = project.stages.reduce((sum, stage) => sum + stage.tasks.length, 0);
@@ -330,6 +330,7 @@ export default function ProjectsPage() {
                   <Link href={`/projects/${project.id}`} className="block">
                     <div className="aspect-video bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
                       {project.posterUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={project.posterUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
@@ -506,7 +507,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [posterUrl, setPosterUrl] = useState("");
-  const [posterAspect, setPosterAspect] = useState("16:9");
+  const [posterAspect] = useState("16:9");
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -614,6 +615,7 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
             <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
               {posterPreview || posterUrl ? (
                 <div className="relative inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={posterPreview || posterUrl} alt="Preview" className="h-24 rounded mx-auto" />
                   <button
                     onClick={() => { setPosterPreview(null); setPosterUrl(""); }}

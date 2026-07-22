@@ -14,16 +14,6 @@ export default function OnboardingPage() {
     hasClientPortal: false, // Solo Creator mode by default
   });
 
-  // Generate slug from name
-  const generateSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
-  };
-
   const handleSubmit = async () => {
     if (!formData.orgName || !formData.brandName) {
       setError("Please fill in organization and brand name");
@@ -58,8 +48,8 @@ export default function OnboardingPage() {
         router.push("/projects");
       }
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Setup failed. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Setup failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -126,7 +116,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Your brand or content type (e.g., "Jacob Film", "Dewa Personal")
+                Your brand or content type (e.g., &quot;Jacob Film&quot;, &quot;Dewa Personal&quot;)
               </p>
             </div>
 

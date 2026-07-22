@@ -138,7 +138,8 @@ export async function PATCH(
     // For OWNER/MANAGER, check brand access (tenant isolation)
     if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
       // Resolve brandId: check project.brandId first, then project.order.brandId
-      const brandId = currentTask.stage.project.brandId ?? (currentTask.stage.project as any).order?.brandId;
+      const project = currentTask.stage.project as { brandId: string | null; order?: { brandId: string } | null };
+      const brandId = project.brandId ?? project.order?.brandId;
       if (brandId) {
         const hasAccess = await canAccessBrand(brandId);
         if (!hasAccess) {

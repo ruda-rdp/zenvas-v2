@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   checkOdooConnection,
-  ODOO_CONFIG,
+  getOdooConfigLazy,
 } from "@/lib/odoo";
 
 // GET /api/odoo - Odoo status & stats
@@ -56,13 +56,14 @@ export async function GET() {
       take: 5,
     });
 
+    const config = getOdooConfigLazy();
     return NextResponse.json({
       connection: {
         isConnected,
-        url: ODOO_CONFIG.url,
-        db: ODOO_CONFIG.db,
-        username: ODOO_CONFIG.username,
-        hasApiKey: !!ODOO_CONFIG.apiKey,
+        url: config.url,
+        db: config.db,
+        username: config.username,
+        hasApiKey: !!config.apiKey,
       },
       stats: {
         totalClients,
@@ -74,7 +75,7 @@ export async function GET() {
       unsyncedClients: unsyncedClients.map((c) => ({
         id: c.id,
         name: c.name,
-        email: (c as any).email,
+        email: c.email ?? "",
         brand: c.brand.name,
         createdAt: c.createdAt,
       })),

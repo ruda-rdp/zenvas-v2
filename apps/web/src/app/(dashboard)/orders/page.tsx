@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 interface Order {
@@ -27,15 +27,11 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
 
-  useEffect(() => {
-    fetchOrders();
-  }, [filter]);
-
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const url = filter === "all" 
-        ? "/api/orders" 
+      const url = filter === "all"
+        ? "/api/orders"
         : `/api/orders?status=${filter}`;
       const res = await fetch(url);
       const data = await res.json();
@@ -45,7 +41,11 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   async function updateOrderStatus(orderId: string, newStatus: string) {
     if (!confirm(`Mark this order as ${newStatus}?`)) return;

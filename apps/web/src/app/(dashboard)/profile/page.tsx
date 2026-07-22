@@ -79,10 +79,10 @@ export default function ProfilePage() {
         await update({ name: data.user.name });
         setMessage({ type: "success", text: "Profile updated" });
       } else {
-        const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Failed to update" });
+        const errData = await res.json();
+        setMessage({ type: "error", text: errData.error || "Failed to update" });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Network error" });
     } finally {
       setSaving(false);
@@ -111,10 +111,10 @@ export default function ProfilePage() {
         setConfirmPassword("");
         setMessage({ type: "success", text: "Password changed" });
       } else {
-        const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Failed" });
+        const errData = await res.json();
+        setMessage({ type: "error", text: errData.error || "Failed" });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Network error" });
     } finally {
       setSaving(false);

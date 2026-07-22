@@ -151,10 +151,11 @@ export async function PATCH(
       CANCELLED: "ORDER_CANCELLED",
     };
 
-    if (activityMap[status]) {
+    const activityType = activityMap[status];
+    if (activityType) {
       await prisma.activityLog.create({
         data: {
-          type: activityMap[status] as any,
+          type: activityType as any,
           entityType: "Order",
           entityId: id,
           userId: session.user.id,

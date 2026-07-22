@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 interface Task {
   id: string;
@@ -61,7 +60,6 @@ interface Project {
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const { data: session } = useSession();
-  const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,14 +74,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const canManage = session?.user?.role === "OWNER" || session?.user?.role === "MANAGER";
   const isEditor = session?.user?.role === "EDITOR";
 
-  useEffect(() => {
-    fetchProject();
-    if (canManage) {
-      fetchUsers();
-    }
-  }, [resolvedParams.id]);
-
-  async function fetchProject() {
+  const fetchProject = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${resolvedParams.id}`);
       if (!res.ok) {
@@ -96,9 +87,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     } finally {
       setLoading(false);
     }
-  }
+  }, [resolvedParams.id]);
 
-  async function fetchUsers() {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch("/api/team");
       if (res.ok) {
@@ -108,22 +99,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     } catch (error) {
       console.error("Error fetching users:", error);
     }
-  }
+  }, []);
 
-  async function updateTaskStatus(taskId: string, status: string) {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) {
-        fetchProject();
-      }
-    } catch (error) {
-      console.error("Error updating task:", error);
+  useEffect(() => {
+    fetchProject();
+    if (canManage) {
+      fetchUsers();
     }
-  }
+  }, [resolvedParams.id, canManage, fetchProject, fetchUsers]);
 
   async function assignTask(taskId: string, userId: string, payoutAmount?: number) {
     try {
@@ -229,16 +212,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       case "POST_PRODUCTION": return "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300";
       default: return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
     }
-  }
-
-  function countSubtasks(task: Task) {
-    let count = 0;
-    function countChildren(t: Task) {
-      count += t.children.length;
-      t.children.forEach(countChildren);
-    }
-    countChildren(task);
-    return count;
   }
 
   if (loading) {
@@ -379,7 +352,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       }}
                       getStatusBadge={getStatusBadge}
                       getCategoryBadge={getCategoryBadge}
-                      countSubtasks={countSubtasks}
                     />
                   ))}
                 
@@ -452,7 +424,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           onAddSubtask={() => { setShowTaskModal(false); setShowAddSubtaskModal(true); }}
           getStatusBadge={getStatusBadge}
           getCategoryBadge={getCategoryBadge}
-          countSubtasks={countSubtasks}
         />
       )}
 
@@ -489,7 +460,6 @@ function TaskCard({
   onAddSubtask,
   getStatusBadge,
   getCategoryBadge,
-  countSubtasks,
 }: {
   task: Task;
   isEditor: boolean;
@@ -500,11 +470,7 @@ function TaskCard({
   onAddSubtask: () => void;
   getStatusBadge: (s: string) => string;
   getCategoryBadge: (c: string | null) => string;
-  countSubtasks: (t: Task) => number;
 }) {
-  const subtaskCount = countSubtasks(task);
-  const isMyTask = task.assigneeUserId === "CURRENT_USER"; // Would need actual user ID
-  
   return (
     <div 
       className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
@@ -531,8 +497,8 @@ function TaskCard({
               <span className="text-orange-500">Unassigned</span>
             )}
             <span>⏱️ {task.expectedDurationMinutes}m</span>
-            {subtaskCount > 0 && (
-              <span>📋 {subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
+            {task.children.length > 0 && (
+              <span>📋 {task.children.length} subtask{task.children.length > 1 ? "s" : ""}</span>
             )}
           </div>
         </div>
@@ -608,7 +574,6 @@ function TaskDetailsModal({
   onAddSubtask,
   getStatusBadge,
   getCategoryBadge,
-  countSubtasks,
 }: {
   task: Task;
   onClose: () => void;
@@ -619,7 +584,6 @@ function TaskDetailsModal({
   onAddSubtask: () => void;
   getStatusBadge: (s: string) => string;
   getCategoryBadge: (c: string | null) => string;
-  countSubtasks: (t: Task) => number;
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>

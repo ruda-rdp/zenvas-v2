@@ -398,20 +398,6 @@ const AVAILABLE_APPS: App[] = [
   },
 ];
 
-// Group apps by category
-const getAppsByCategory = () => {
-  const categories: Record<string, App[]> = {};
-  
-  AVAILABLE_APPS.forEach(app => {
-    if (!categories[app.category]) {
-      categories[app.category] = [];
-    }
-    categories[app.category].push(app);
-  });
-  
-  return categories;
-};
-
 export default function AppStorePage() {
   const { data: session, status } = useSession();
   const [installedApps, setInstalledApps] = useState<string[]>([]);
@@ -497,7 +483,6 @@ export default function AppStorePage() {
     }
   };
 
-  const categories = getAppsByCategory();
   const availableApps = AVAILABLE_APPS.filter(a => a.status === "available");
   const comingSoonApps = AVAILABLE_APPS.filter(a => a.status === "coming_soon");
 
@@ -598,7 +583,7 @@ export default function AppStorePage() {
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• <strong>Free modules</strong> are available for all workspace owners</li>
           <li>• <strong>Pro modules</strong> require subscription for advanced features</li>
-          <li>• <strong>Coming Soon</strong> modules show what's planned for future releases</li>
+          <li>• <strong>Coming Soon</strong> modules show what&apos;s planned for future releases</li>
           <li>• Installed apps appear in your sidebar navigation</li>
           <li>• You can remove apps anytime without losing your data</li>
         </ul>

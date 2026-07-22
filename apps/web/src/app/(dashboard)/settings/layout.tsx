@@ -33,9 +33,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
     if (session?.user) {
       checkApps();
-    } else {
-      setLoading(false);
     }
+    // Don't call setLoading here - checkApps handles it via finally
   }, [session?.user]);
 
   const navSections = [

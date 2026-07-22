@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 
 interface WithdrawalRequest {
@@ -25,17 +25,11 @@ export default function PayoutsPage() {
 
   const canManage = session?.user?.role === "OWNER" || session?.user?.role === "MANAGER";
 
-  useEffect(() => {
-    if (canManage) {
-      fetchWithdrawals();
-    }
-  }, [filter]);
-
-  async function fetchWithdrawals() {
+  const fetchWithdrawals = useCallback(async () => {
     setLoading(true);
     try {
-      const url = filter === "all" 
-        ? "/api/payouts" 
+      const url = filter === "all"
+        ? "/api/payouts"
         : `/api/payouts?status=${filter}`;
       const res = await fetch(url);
       if (res.ok) {
@@ -47,7 +41,13 @@ export default function PayoutsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
+
+  useEffect(() => {
+    if (canManage) {
+      fetchWithdrawals();
+    }
+  }, [canManage, filter, fetchWithdrawals]);
 
   async function markAsPaid(id: string) {
     setProcessing(id);
