@@ -42,10 +42,29 @@ constitutes Zenvas's unique value:
 To avoid hard lock-in to Odoo (relevant for the Stage 2 multi-tenant SaaS
 vision in FOUNDATION.md, where future organizations may not use Odoo),
 Zenvas maintains its own lightweight `Order`, `Invoice`, and `Client`
-records — reference + status only, synced from Odoo via API (XML-RPC/JSON-RPC),
+records — reference + status only, synced from Odoo via JSON-RPC API,
 not read/written directly against Odoo's internal tables. Odoo is treated as
 a pluggable backend adapter, not a hard dependency baked into Zenvas's core
 schema.
+
+### JSON-RPC Implementation (Updated 2026-07-22)
+
+**Endpoint:** `/jsonrpc` (single endpoint for all services)
+
+**Authentication Flow:**
+```typescript
+// 1. Authenticate first
+const auth = await odooAuthenticate(); // Returns { uid: number }
+if (!auth) return error;
+
+// 2. Pass uid to all subsequent calls
+const result = await odooCall("res.partner", "search", [domain], auth.uid);
+```
+
+**Key Changes:**
+- Uses `/jsonrpc` endpoint (not `/xmlrpc/2/object`)
+- All API calls require `uid` from authentication
+- Format: `execute_kw` method with model, method, and args
 
 ## Sync Mechanism (Updated 2026-07-20)
 

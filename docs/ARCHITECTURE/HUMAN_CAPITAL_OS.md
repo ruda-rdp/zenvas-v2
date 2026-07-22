@@ -126,6 +126,27 @@ Multi-brand access per user (Odoo style):
 - Owner controls which brands user can access
 - Example: Editor can work on both EPE and Balistory
 
+### Tenant Isolation (Updated 2026-07-22)
+
+**Critical Security Feature:**
+- Each User belongs to one Organization
+- Each Brand belongs to one Organization
+- OWNER/MANAGER can only access brands within their own organization
+- `canAccessBrand()` verifies `brand.organizationId === user.organizationId`
+- EDITOR brand access is filtered by organization via `BrandAccess` join table
+
+**Implementation:**
+```typescript
+// In lib/authorize.ts - canAccessBrand()
+if (user.role === "OWNER" || user.role === "MANAGER") {
+  const brand = await prisma.brand.findUnique({
+    where: { id: brandId },
+    select: { organizationId: true },
+  });
+  return brand?.organizationId === user.organizationId;
+}
+```
+
 ## API Endpoints
 
 | Endpoint | Method | Description |

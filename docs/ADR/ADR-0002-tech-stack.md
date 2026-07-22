@@ -15,13 +15,18 @@ fixed answer, not a per-session guess.
 
 ## Decision
 
-- **Frontend:** Next.js 14 (App Router) + React 18 + TypeScript
-- **Styling:** Tailwind CSS
+- **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
+- **Styling:** Tailwind CSS v4
 - **Backend:** Next.js API Routes (same codebase, no separate backend service)
 - **Database:** PostgreSQL (Neon)
-- **ORM:** Prisma 5.x
-- **Auth:** NextAuth.js
+- **ORM:** Prisma 7.x
+- **Auth:** NextAuth.js v5 (JWT strategy)
 - **Deployment:** Self-hosted Ubuntu VM (initial)
+
+## Implementation Details
+
+- **Password Hashing:** bcryptjs (pure JS, no native binding required)
+- **Runtime:** Node.js (for deployment flexibility)
 
 This is a single full-stack Next.js application, not a separate
 frontend/backend split — matching the scale of Phase 1 (one Organization,

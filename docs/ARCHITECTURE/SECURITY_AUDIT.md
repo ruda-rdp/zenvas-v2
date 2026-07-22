@@ -10,8 +10,8 @@ Security audit conducted on Zenvas v2 codebase focusing on authentication, autho
 ## ✅ STRENGTHS
 
 ### 1. Authentication
-- ✅ **NextAuth.js** used for authentication
-- ✅ **bcrypt** password hashing (12 rounds)
+- ✅ **NextAuth.js v5** used for authentication
+- ✅ **bcryptjs** password hashing (12 rounds, pure JS)
 - ✅ **JWT session strategy** with secure token storage
 - ✅ **Credentials provider** with proper validation
 
@@ -20,7 +20,8 @@ Security audit conducted on Zenvas v2 codebase focusing on authentication, autho
 - ✅ **4 roles**: OWNER, MANAGER, PRODUCER, EDITOR
 - ✅ **Permission matrix** in `lib/authorize.ts`
 - ✅ **Editor restrictions**: Can only see/manage own tasks
-- ✅ **Confidentiality enforcement**: Editors cannot see prices/amounts
+- ✅ **Confidentiality enforcement**: Editors cannot see prices/amounts (allowlist pattern)
+- ✅ **Tenant isolation**: OWNER/MANAGER brand access filtered by organizationId
 
 ### 3. API Security
 - ✅ **All API routes check session** with `auth()`
