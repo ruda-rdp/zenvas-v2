@@ -27,8 +27,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status"); // REQUESTED, PAID
 
-    // Get pending withdrawal requests
-    const where: Record<string, unknown> = {};
+    // Get pending withdrawal requests - filter by organization to prevent cross-tenant access
+    const where: Record<string, unknown> = {
+      user: { organizationId: session.user.organizationId },
+    };
     if (status) {
       where.status = status;
     }

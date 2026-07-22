@@ -6,7 +6,7 @@
  * - Invoice (account.move) creation
  * - Invoice status reading
  *
- * Uses XML-RPC/JSON-RPC for communication.
+ * Uses JSON-RPC API (not XML-RPC) for communication.
  * Manual trigger is acceptable for Phase 1 MVP.
  */
 
@@ -18,9 +18,8 @@ const ODOO_CONFIG = {
   db: process.env.ODOO_DB || "kreatifproduction",
   username: process.env.ODOO_USERNAME || "admin",
   apiKey: process.env.ODOO_API_KEY || "",
-  // XML-RPC endpoint
-  rpcPath: "/xmlrpc/2/object",
-  commonPath: "/xmlrpc/2/common",
+  // JSON-RPC endpoint (single endpoint for all services)
+  jsonrpcPath: "/jsonrpc",
 };
 
 // Types for Odoo responses
@@ -56,15 +55,18 @@ interface SyncResult {
 }
 
 /**
- * Make an XML-RPC call to Odoo
+ * Make a JSON-RPC call to Odoo
+ * FIXED: Uses /jsonrpc endpoint with proper JSON-RPC 2.0 format
+ * Requires uid from odooAuthenticate() to be passed as parameter
  */
 async function odooCall<T = unknown>(
   model: string,
   method: string,
-  args: unknown[]
+  args: unknown[],
+  uid: number
 ): Promise<OdooResult> {
   try {
-    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.rpcPath}`, {
+    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.jsonrpcPath}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -74,8 +76,8 @@ async function odooCall<T = unknown>(
         method: "call",
         params: {
           service: "object",
-          method: method,
-          args: [ODOO_CONFIG.db, 0, ODOO_CONFIG.apiKey, model, method, args],
+          method: "execute_kw",
+          args: [ODOO_CONFIG.db, uid, ODOO_CONFIG.apiKey, model, method, args],
         },
         id: Date.now(),
       }),
@@ -111,10 +113,11 @@ async function odooCall<T = unknown>(
 
 /**
  * Authenticate with Odoo and get user ID
+ * Returns uid which must be passed to odooCall()
  */
 export async function odooAuthenticate(): Promise<{ uid: number } | null> {
   try {
-    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.commonPath}`, {
+    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.jsonrpcPath}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -155,7 +158,7 @@ export async function odooAuthenticate(): Promise<{ uid: number } | null> {
  */
 export async function checkOdooConnection(): Promise<boolean> {
   try {
-    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.commonPath}`, {
+    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.jsonrpcPath}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -183,6 +186,7 @@ export async function checkOdooConnection(): Promise<boolean> {
 /**
  * Create a new Client in Odoo (res.partner)
  * Called when a Lead is converted to Client
+ * FIXED: Uses authenticated uid from odooAuthenticate()
  */
 export async function createOdooClient(clientData: {
   name: string;
@@ -191,16 +195,18 @@ export async function createOdooClient(clientData: {
   companyType?: "company" | "person";
 }): Promise<SyncResult> {
   try {
-    const uid = await odooAuthenticate();
-    if (!uid) {
+    const auth = await odooAuthenticate();
+    if (!auth) {
       return { success: false, error: "Authentication failed", timestamp: new Date() };
     }
+    const uid = auth.uid;
 
     // Search for existing partner with same email
     const searchResult = await odooCall<number[]>(
       "res.partner",
       "search",
-      [[["email", "=", clientData.email]]]
+      [[["email", "=", clientData.email]]],
+      uid
     );
 
     if (searchResult.success && searchResult.data && (searchResult.data as number[]).length > 0) {
@@ -225,7 +231,8 @@ export async function createOdooClient(clientData: {
           company_type: clientData.companyType || "company",
           // Additional fields can be added here
         },
-      ]
+      ],
+      uid
     );
 
     if (createResult.success && createResult.data) {
@@ -252,12 +259,17 @@ export async function createOdooClient(clientData: {
 
 /**
  * Get Client from Odoo by ID
+ * FIXED: Uses authenticated uid
  */
 export async function getOdooClient(odooPartnerId: number): Promise<OdooPartner | null> {
+  const auth = await odooAuthenticate();
+  if (!auth) return null;
+  
   const result = await odooCall<OdooPartner[]>(
     "res.partner",
     "read",
-    [[odooPartnerId], ["id", "name", "email", "phone", "company_type"]]
+    [[odooPartnerId], ["id", "name", "email", "phone", "company_type"]],
+    auth.uid
   );
 
   if (result.success && result.data && (result.data as OdooPartner[]).length > 0) {
@@ -270,6 +282,7 @@ export async function getOdooClient(odooPartnerId: number): Promise<OdooPartner 
 /**
  * Sync Client from Zenvas to Odoo
  * Updates existing or creates new
+ * FIXED: Uses authenticated uid
  */
 export async function syncClientToOdoo(clientId: string): Promise<SyncResult> {
   const client = await prisma.client.findUnique({
@@ -281,13 +294,14 @@ export async function syncClientToOdoo(clientId: string): Promise<SyncResult> {
     return { success: false, error: "Client not found", timestamp: new Date() };
   }
 
+  const auth = await odooAuthenticate();
+  if (!auth) {
+    return { success: false, error: "Authentication failed", timestamp: new Date() };
+  }
+  const uid = auth.uid;
+
   // If client already has Odoo partner ID, update it
   if (client.odooPartnerId) {
-    const uid = await odooAuthenticate();
-    if (!uid) {
-      return { success: false, error: "Authentication failed", timestamp: new Date() };
-    }
-
     const updateResult = await odooCall<boolean>(
       "res.partner",
       "write",
@@ -297,7 +311,8 @@ export async function syncClientToOdoo(clientId: string): Promise<SyncResult> {
           name: client.name,
           email: client.email,
         },
-      ]
+      ],
+      uid
     );
 
     return {
@@ -332,6 +347,7 @@ export async function syncClientToOdoo(clientId: string): Promise<SyncResult> {
 /**
  * Create an Invoice in Odoo (account.move)
  * Type: "out_invoice" for customer invoices
+ * FIXED: Uses authenticated uid from odooAuthenticate()
  */
 export async function createOdooInvoice(invoiceData: {
   partnerId: number; // Odoo partner ID
@@ -345,10 +361,11 @@ export async function createOdooInvoice(invoiceData: {
   date?: string;
 }): Promise<SyncResult> {
   try {
-    const uid = await odooAuthenticate();
-    if (!uid) {
+    const auth = await odooAuthenticate();
+    if (!auth) {
       return { success: false, error: "Authentication failed", timestamp: new Date() };
     }
+    const uid = auth.uid;
 
     // Create invoice lines
     const invoiceLines = invoiceData.lines.map((line) => [
@@ -374,7 +391,8 @@ export async function createOdooInvoice(invoiceData: {
           ref: invoiceData.reference || "",
           invoice_date: invoiceData.date || new Date().toISOString().split("T")[0],
         },
-      ]
+      ],
+      uid
     );
 
     if (createResult.success && createResult.data) {
@@ -401,8 +419,12 @@ export async function createOdooInvoice(invoiceData: {
 
 /**
  * Get Invoice from Odoo by ID
+ * FIXED: Uses authenticated uid
  */
 export async function getOdooInvoice(odooInvoiceId: number): Promise<OdooInvoice | null> {
+  const auth = await odooAuthenticate();
+  if (!auth) return null;
+  
   const result = await odooCall<OdooInvoice[]>(
     "account.move",
     "read",
@@ -417,7 +439,8 @@ export async function getOdooInvoice(odooInvoiceId: number): Promise<OdooInvoice
         "invoice_date",
         "invoice_line_ids",
       ],
-    ]
+    ],
+    auth.uid
   );
 
   if (result.success && result.data && (result.data as OdooInvoice[]).length > 0) {
@@ -438,12 +461,19 @@ export async function getOdooInvoiceStatus(odooInvoiceId: number): Promise<strin
 
 /**
  * Post an Invoice in Odoo (change state from draft to posted)
+ * FIXED: Uses authenticated uid
  */
 export async function postOdooInvoice(odooInvoiceId: number): Promise<SyncResult> {
+  const auth = await odooAuthenticate();
+  if (!auth) {
+    return { success: false, error: "Authentication failed", timestamp: new Date() };
+  }
+  
   const result = await odooCall<boolean>(
     "account.move",
     "action_post",
-    [[odooInvoiceId]]
+    [[odooInvoiceId]],
+    auth.uid
   );
 
   return {
@@ -477,6 +507,14 @@ export async function syncOrderDpInvoice(orderId: string): Promise<SyncResult> {
     const clientSync = await syncClientToOdoo(order.clientId);
     if (!clientSync.success || !clientSync.odooId) {
       return clientSync;
+    }
+    // Refresh order to get updated client.odooPartnerId
+    const refreshedOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { client: true },
+    });
+    if (!refreshedOrder?.client.odooPartnerId) {
+      return { success: false, error: "Failed to sync client to Odoo", timestamp: new Date() };
     }
   }
 
@@ -514,6 +552,7 @@ export async function syncOrderDpInvoice(orderId: string): Promise<SyncResult> {
 /**
  * Sync Order Final Invoice to Odoo
  * Called when Project delivery is approved
+ * FIXED: Added client sync check (same as syncOrderDpInvoice)
  */
 export async function syncOrderFinalInvoice(orderId: string): Promise<SyncResult> {
   const order = await prisma.order.findUnique({
@@ -523,6 +562,24 @@ export async function syncOrderFinalInvoice(orderId: string): Promise<SyncResult
 
   if (!order) {
     return { success: false, error: "Order not found", timestamp: new Date() };
+  }
+
+  // FIXED: Ensure client exists in Odoo (same pattern as syncOrderDpInvoice)
+  if (!order.client.odooPartnerId) {
+    const clientSync = await syncClientToOdoo(order.clientId);
+    if (!clientSync.success || !clientSync.odooId) {
+      return clientSync;
+    }
+    // Refresh order to get updated client.odooPartnerId
+    const refreshedOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { client: true },
+    });
+    if (!refreshedOrder?.client.odooPartnerId) {
+      return { success: false, error: "Failed to sync client to Odoo", timestamp: new Date() };
+    }
+    // Use refreshed partner ID
+    order.client.odooPartnerId = refreshedOrder.client.odooPartnerId;
   }
 
   // Get DP amount for calculation

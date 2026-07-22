@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TaskStatus } from "@/generated/prisma";
+import { canAccessBrand } from "@/lib/authorize";
 
 // GET /api/tasks/[id]
 export async function GET(
@@ -64,7 +65,18 @@ export async function GET(
 
     // For Editors, check if task is assigned to them
     if (session.user.role === "EDITOR" && task.assigneeUserId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // For OWNER/MANAGER, check brand access (tenant isolation)
+    if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
+      const brandId = task.stage.project.brandId ?? task.stage.project.order?.brandId;
+      if (brandId) {
+        const hasAccess = await canAccessBrand(brandId);
+        if (!hasAccess) {
+          return NextResponse.json({ error: "Task not found" }, { status: 404 });
+        }
+      }
     }
 
     return NextResponse.json({ task });
@@ -109,11 +121,22 @@ export async function PATCH(
     // Editors can only update their own tasks' status
     if (session.user.role === "EDITOR") {
       if (currentTask.assigneeUserId !== session.user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
       }
       // Editors can only change status
       if (name || assigneeUserId || payoutAmount !== undefined) {
         return NextResponse.json({ error: "Editors can only update task status" }, { status: 403 });
+      }
+    }
+
+    // For OWNER/MANAGER, check brand access (tenant isolation)
+    if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
+      const brandId = currentTask.stage.project.brandId;
+      if (brandId) {
+        const hasAccess = await canAccessBrand(brandId);
+        if (!hasAccess) {
+          return NextResponse.json({ error: "Task not found" }, { status: 404 });
+        }
       }
     }
 

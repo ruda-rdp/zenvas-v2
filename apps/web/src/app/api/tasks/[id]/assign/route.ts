@@ -37,13 +37,21 @@ export async function POST(
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
 
-    // Get the task with project/brand info
+    // Get the task with project/brand info (include order for brandId resolution)
     const task = await prisma.task.findUnique({
       where: { id },
       include: {
         stage: {
           include: {
-            project: true,
+            project: {
+              include: {
+                order: {
+                  include: {
+                    brand: true,
+                  },
+                },
+              },
+            },
           },
         },
         payout: true,
@@ -54,11 +62,14 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Check brand access
-    if (task.stage.project.brandId) {
-      const hasAccess = await canAccessBrand(task.stage.project.brandId);
+    // Resolve brandId: check project.brandId first, then project.order.brandId
+    const brandId = task.stage.project.brandId ?? task.stage.project.order?.brandId;
+
+    // Check brand access (tenant isolation)
+    if (brandId) {
+      const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
-        return NextResponse.json({ error: "You don't have access to this brand" }, { status: 403 });
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
       }
     }
 

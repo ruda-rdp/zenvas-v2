@@ -136,20 +136,34 @@ export function calculateStaleness(
 /**
  * Get all stale tasks for a brand
  * Used by Mission Control dashboard
+ * 
+ * FIXED: Supports both solo projects (project.brandId) and order-based projects (project.order.brandId)
  */
 export async function getStaleTasks(prisma: any, brandId: string): Promise<StaleTaskInfo[]> {
   const now = new Date();
 
   // Get all tasks that are OPEN or IN_PROGRESS
+  // Supports both solo projects (project.brandId) and order-based projects (project.order.brandId)
   const tasks = await prisma.task.findMany({
     where: {
-      stage: {
-        project: {
-          order: {
-            brandId: brandId,
+      OR: [
+        {
+          stage: {
+            project: {
+              brandId: brandId,
+            },
           },
         },
-      },
+        {
+          stage: {
+            project: {
+              order: {
+                brandId: brandId,
+              },
+            },
+          },
+        },
+      ],
       status: {
         in: ["OPEN", "IN_PROGRESS"],
       },
@@ -157,16 +171,7 @@ export async function getStaleTasks(prisma: any, brandId: string): Promise<Stale
     include: {
       stage: {
         include: {
-          project: {
-            include: {
-              order: {
-                include: {
-                  client: true,
-                  service: true,
-                },
-              },
-            },
-          },
+          project: true,
         },
       },
       assignee: {
@@ -191,7 +196,7 @@ export async function getStaleTasks(prisma: any, brandId: string): Promise<Stale
         taskId: task.id,
         taskName: task.name,
         stageName: task.stage.name,
-        projectName: task.stage.project.order.service.name,
+        projectName: task.stage.project.name,
         projectId: task.stage.project.id,
         assigneeName: task.assignee?.name || null,
         expectedDurationMinutes: task.expectedDurationMinutes,
@@ -210,6 +215,7 @@ export async function getStaleTasks(prisma: any, brandId: string): Promise<Stale
 
 /**
  * Get stale tasks for a specific project
+ * FIXED: projectName from project.name instead of project.order.service.name
  */
 export async function getProjectStaleTasks(
   prisma: any,
@@ -229,11 +235,7 @@ export async function getProjectStaleTasks(
     include: {
       stage: {
         include: {
-          project: {
-            include: {
-              order: true,
-            },
-          },
+          project: true,
         },
       },
       assignee: {
@@ -257,7 +259,7 @@ export async function getProjectStaleTasks(
         taskId: task.id,
         taskName: task.name,
         stageName: task.stage.name,
-        projectName: task.stage.project.order.service.name,
+        projectName: task.stage.project.name,
         projectId: task.stage.project.id,
         assigneeName: task.assignee?.name || null,
         expectedDurationMinutes: task.expectedDurationMinutes,
@@ -276,6 +278,7 @@ export async function getProjectStaleTasks(
 
 /**
  * Get stale tasks for a specific user (Editor)
+ * FIXED: projectName from project.name instead of project.order.service.name
  */
 export async function getUserStaleTasks(prisma: any, userId: string): Promise<StaleTaskInfo[]> {
   const now = new Date();
@@ -290,15 +293,7 @@ export async function getUserStaleTasks(prisma: any, userId: string): Promise<St
     include: {
       stage: {
         include: {
-          project: {
-            include: {
-              order: {
-                include: {
-                  service: true,
-                },
-              },
-            },
-          },
+          project: true,
         },
       },
       assignee: {
@@ -322,7 +317,7 @@ export async function getUserStaleTasks(prisma: any, userId: string): Promise<St
         taskId: task.id,
         taskName: task.name,
         stageName: task.stage.name,
-        projectName: task.stage.project.order.service.name,
+        projectName: task.stage.project.name,
         projectId: task.stage.project.id,
         assigneeName: task.assignee?.name || null,
         expectedDurationMinutes: task.expectedDurationMinutes,
@@ -342,6 +337,8 @@ export async function getUserStaleTasks(prisma: any, userId: string): Promise<St
 /**
  * Get stale task counts for Mission Control
  * Returns summary counts for each staleness level
+ * 
+ * FIXED: Supports both solo projects and order-based projects via OR
  */
 export async function getStaleTaskCounts(prisma: any, brandId: string): Promise<{
   total: number;
@@ -377,17 +374,28 @@ export async function getStaleTaskCounts(prisma: any, brandId: string): Promise<
     }
   }
 
-  // Add normal tasks count
+  // Add normal tasks count - supports both solo and order-based projects
   counts.normal = (
     await prisma.task.count({
       where: {
-        stage: {
-          project: {
-            order: {
-              brandId: brandId,
+        OR: [
+          {
+            stage: {
+              project: {
+                brandId: brandId,
+              },
             },
           },
-        },
+          {
+            stage: {
+              project: {
+                order: {
+                  brandId: brandId,
+                },
+              },
+            },
+          },
+        ],
         status: {
           in: ["OPEN", "IN_PROGRESS"],
         },

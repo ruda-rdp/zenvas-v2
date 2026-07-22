@@ -31,9 +31,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Get target user
+    // Get target user - must be in same organization (prevents cross-tenant access)
     const targetUser = await prisma.user.findUnique({
-      where: { id },
+      where: { 
+        id,
+        organizationId: session.user.organizationId,
+      },
     });
 
     if (!targetUser) {

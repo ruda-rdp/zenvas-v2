@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canAccessBrand } from "@/lib/authorize";
 
 export async function POST(
   request: Request,
@@ -42,6 +43,7 @@ export async function POST(
                 id: true,
                 name: true,
                 orderId: true,
+                brandId: true,
               },
             },
           },
@@ -55,7 +57,18 @@ export async function POST(
 
     // Editor must be the assignee
     if (session.user.role === "EDITOR" && task.assigneeUserId !== session.user.id) {
-      return NextResponse.json({ error: "You can only complete your own tasks" }, { status: 403 });
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // For OWNER/MANAGER, check brand access (tenant isolation)
+    if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
+      const brandId = task.stage.project.brandId;
+      if (brandId) {
+        const hasAccess = await canAccessBrand(brandId);
+        if (!hasAccess) {
+          return NextResponse.json({ error: "Task not found" }, { status: 404 });
+        }
+      }
     }
 
     // Check if task is already complete

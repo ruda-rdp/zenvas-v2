@@ -27,9 +27,12 @@ export async function PATCH(
     const body = await request.json();
     const { isActive } = body;
 
-    // Get target user
+    // Get target user - must be in same organization (prevents cross-tenant access)
     const targetUser = await prisma.user.findUnique({
-      where: { id },
+      where: { 
+        id,
+        organizationId: session.user.organizationId,
+      },
     });
 
     if (!targetUser) {
@@ -79,9 +82,12 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Get target user
+    // Get target user - must be in same organization (prevents cross-tenant access)
     const targetUser = await prisma.user.findUnique({
-      where: { id },
+      where: { 
+        id,
+        organizationId: session.user.organizationId,
+      },
     });
 
     if (!targetUser) {

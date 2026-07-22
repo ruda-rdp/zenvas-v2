@@ -38,12 +38,18 @@ export async function POST(
             id: true,
             name: true,
             email: true,
+            organizationId: true,
           },
         },
       },
     });
 
     if (!withdrawal) {
+      return NextResponse.json({ error: "Withdrawal request not found" }, { status: 404 });
+    }
+
+    // Check organization - prevent cross-tenant access
+    if (withdrawal.user.organizationId !== session.user.organizationId) {
       return NextResponse.json({ error: "Withdrawal request not found" }, { status: 404 });
     }
 

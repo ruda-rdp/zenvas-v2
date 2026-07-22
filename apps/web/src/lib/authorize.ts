@@ -131,33 +131,6 @@ export async function getAccessibleBrandIds(): Promise<string[]> {
 }
 
 /**
- * Scope a query to only return data the user can access
- * Enforces CONSTITUTION.md #1: Financial Confidentiality
- */
-export function scopeQuery<T extends { brandId?: string }>(
-  query: T,
-  userRole: Role
-): Partial<T> {
-  // Owner and Manager can see everything
-  if (userRole === "OWNER" || userRole === "MANAGER") {
-    return query;
-  }
-
-  // Editor can only see their own tasks
-  // Order, Client, Service.price fields should NEVER be in EDITOR queries
-  // This is enforced by not including those relations in the query
-  
-  const scopedQuery: Partial<T> = {};
-  
-  // For tasks, only return assigned to current user
-  if ("assigneeUserId" in query && userRole === "EDITOR") {
-    return query;
-  }
-  
-  return scopedQuery;
-}
-
-/**
  * Validate task hierarchy depth (max 4 levels)
  * Per PROJECT_OS.md Task Hierarchy
  */
@@ -177,6 +150,7 @@ export function validateTaskDepth(
 /**
  * Check if user can access a specific brand
  * Per Brand Access model in HUMAN_CAPITAL_OS.md
+ * FIXED: Now enforces tenant isolation for OWNER/MANAGER
  */
 export async function canAccessBrand(brandId: string): Promise<boolean> {
   const user = await getCurrentUser();
@@ -185,12 +159,21 @@ export async function canAccessBrand(brandId: string): Promise<boolean> {
     return false;
   }
 
-  // Owner and Manager can access all brands
+  // Owner and Manager: check if brand belongs to their organization
   if (user.role === "OWNER" || user.role === "MANAGER") {
-    return true;
+    const brand = await prisma.brand.findUnique({
+      where: { id: brandId },
+      select: { organizationId: true },
+    });
+    
+    if (!brand) {
+      return false;
+    }
+    
+    return brand.organizationId === user.organizationId;
   }
 
-  // Editor must have explicit brand access
+  // Editor must have explicit brand access (unchanged)
   const access = await prisma.brandAccess.findUnique({
     where: {
       userId_brandId: {
@@ -204,8 +187,23 @@ export async function canAccessBrand(brandId: string): Promise<boolean> {
 }
 
 /**
+ * Allowlist of fields that EDITORs can see
+ * Per CONSTITUTION.md #1: Financial Confidentiality
+ * Default deny - only these fields are visible to EDITORs
+ */
+const EDITOR_ALLOWED_FIELDS = new Set([
+  // Task fields
+  "id", "name", "description", "status", "order",
+  "expectedDurationMinutes", "startedAt", "completedAt",
+  "parentTaskId", "assigneeUserId", "stageId",
+  // Common fields
+  "createdAt", "updatedAt",
+]);
+
+/**
  * Validate that an editor is not accessing confidential data
  * Per CONSTITUTION.md #1: Financial Confidentiality
+ * FIXED: Uses allowlist pattern - only defined fields are visible to EDITORs
  */
 export function enforceConfidentiality<T extends Record<string, unknown>>(
   data: T,
@@ -215,17 +213,12 @@ export function enforceConfidentiality<T extends Record<string, unknown>>(
     return data;
   }
 
-  // For editors, strip out any financial/confidential fields
-  const safeFields = Object.keys(data).filter(
-    (key) =>
-      !["price", "amount", "budget", "invoice", "odooPartnerId", "odooInvoiceDpId", "odooInvoiceFinalId"].includes(
-        key.toLowerCase()
-      )
-  );
-
+  // For EDITORs, only return fields in the allowlist
   const result: Partial<T> = {};
-  for (const key of safeFields) {
-    result[key as keyof T] = data[key as keyof T];
+  for (const key of Object.keys(data)) {
+    if (EDITOR_ALLOWED_FIELDS.has(key)) {
+      result[key as keyof T] = data[key as keyof T];
+    }
   }
 
   return result;
