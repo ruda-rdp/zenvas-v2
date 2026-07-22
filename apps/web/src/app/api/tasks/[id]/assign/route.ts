@@ -87,12 +87,9 @@ export async function POST(
       return NextResponse.json({ error: "Cannot assign task to user from different organization" }, { status: 403 });
     }
 
-    // Verify the target user has access to this brand (if brand-specific)
     // Note: Brand access check is informational; Owner/Manager can assign to anyone
-    if (task.stage.project.brandId) {
-      // Future: could warn if user doesn't have brand access
-      void task.stage.project.brandId; // Reference to avoid unused warning
-    }
+    // Using brandId resolved above (with fallback)
+    void brandId; // Reference to avoid unused warning
 
     // Build update data
     const updateData: Record<string, unknown> = {
