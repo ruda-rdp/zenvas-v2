@@ -44,6 +44,15 @@ function getOdooConfig(): {
   };
 }
 
+// Odoo connection configuration
+const ODOO_CONFIG = {
+  url: process.env.ODOO_URL || "https://bisnis.kreatifproduction.com",
+  db: process.env.ODOO_DB || "kreatifproduction",
+  username: process.env.ODOO_USERNAME || "admin",
+  apiKey: process.env.ODOO_API_KEY || "",
+  jsonrpcPath: "/jsonrpc",
+};
+
 // Odoo connection configuration - lazily initialized
 let _odooConfig: ReturnType<typeof getOdooConfig> | null = null;
 
@@ -694,5 +703,5 @@ export async function notifyOdooError(error: string, context: string): Promise<v
   // In production, this should send a notification to the Owner
 }
 
-// Export config getter for testing/debugging
-export { getOdooConfig, getOdooConfigLazy };
+// Export config for testing/debugging
+export { ODOO_CONFIG, getOdooConfig, getOdooConfigLazy };
