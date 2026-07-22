@@ -16,14 +16,9 @@ interface Organization {
   id: string;
   name: string;
   createdAt: string;
-  owner: {
-    name: string;
-    email: string;
-  };
   _count: {
     users: number;
     brands: number;
-    projects: number;
   };
 }
 
@@ -200,12 +195,11 @@ export default function SuperAdminPage() {
                     <tr key={org.id} className="border-b last:border-0">
                       <td className="py-3 font-medium">{org.name}</td>
                       <td className="py-3">
-                        <div>{org.owner.name}</div>
-                        <div className="text-sm text-gray-500">{org.owner.email}</div>
+                        <div className="text-gray-500">N/A</div>
                       </td>
                       <td className="py-3">{org._count.users}</td>
                       <td className="py-3">{org._count.brands}</td>
-                      <td className="py-3">{org._count.projects}</td>
+                      <td className="py-3 text-gray-400">-</td>
                       <td className="py-3 text-sm text-gray-500">
                         {new Date(org.createdAt).toLocaleDateString()}
                       </td>
@@ -289,15 +283,12 @@ function OrganizationsList() {
         </thead>
         <tbody>
           {orgs.map((org) => (
-            <tr key={org.id} className="border-b last:border-0 hover:bg-gray-50">
+          <tr key={org.id} className="border-b last:border-0 hover:bg-gray-50">
               <td className="py-3 font-medium">{org.name}</td>
-              <td className="py-3">
-                <div>{org.owner?.name || "N/A"}</div>
-                <div className="text-sm text-gray-500">{org.owner?.email || "N/A"}</div>
-              </td>
+              <td className="py-3 text-gray-500">N/A</td>
               <td className="py-3">{org._count.users}</td>
               <td className="py-3">{org._count.brands}</td>
-              <td className="py-3">{org._count.projects}</td>
+              <td className="py-3 text-gray-400">-</td>
               <td className="py-3 text-sm text-gray-500">
                 {new Date(org.createdAt).toLocaleDateString()}
               </td>
