@@ -107,7 +107,13 @@ export async function PATCH(
       include: {
         stage: {
           include: {
-            project: true,
+            project: {
+              include: {
+                order: {
+                  select: { brandId: true },
+                },
+              },
+            },
           },
         },
         children: true,
@@ -131,7 +137,8 @@ export async function PATCH(
 
     // For OWNER/MANAGER, check brand access (tenant isolation)
     if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
-      const brandId = currentTask.stage.project.brandId;
+      // Resolve brandId: check project.brandId first, then project.order.brandId
+      const brandId = currentTask.stage.project.brandId ?? (currentTask.stage.project as any).order?.brandId;
       if (brandId) {
         const hasAccess = await canAccessBrand(brandId);
         if (!hasAccess) {

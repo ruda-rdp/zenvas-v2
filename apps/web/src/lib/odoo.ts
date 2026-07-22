@@ -12,15 +12,47 @@
 
 import { prisma } from "@/lib/db";
 
-// Odoo connection configuration from environment
-const ODOO_CONFIG = {
-  url: process.env.ODOO_URL || "https://bisnis.kreatifproduction.com",
-  db: process.env.ODOO_DB || "kreatifproduction",
-  username: process.env.ODOO_USERNAME || "admin",
-  apiKey: process.env.ODOO_API_KEY || "",
-  // JSON-RPC endpoint (single endpoint for all services)
-  jsonrpcPath: "/jsonrpc",
-};
+/**
+ * Get Odoo configuration from environment variables.
+ * Throws an error if required environment variables are not set.
+ */
+function getOdooConfig(): {
+  url: string;
+  db: string;
+  username: string;
+  apiKey: string;
+  jsonrpcPath: string;
+} {
+  const url = process.env.ODOO_URL;
+  const db = process.env.ODOO_DB;
+  const username = process.env.ODOO_USERNAME;
+  const apiKey = process.env.ODOO_API_KEY;
+
+  if (!url || !db || !username || !apiKey) {
+    throw new Error(
+      "Odoo configuration incomplete. Required environment variables: " +
+        "ODOO_URL, ODOO_DB, ODOO_USERNAME, ODOO_API_KEY"
+    );
+  }
+
+  return {
+    url,
+    db,
+    username,
+    apiKey,
+    jsonrpcPath: "/jsonrpc",
+  };
+}
+
+// Odoo connection configuration - lazily initialized
+let _odooConfig: ReturnType<typeof getOdooConfig> | null = null;
+
+function getOdooConfigLazy() {
+  if (!_odooConfig) {
+    _odooConfig = getOdooConfig();
+  }
+  return _odooConfig;
+}
 
 // Types for Odoo responses
 interface OdooResult {
@@ -66,7 +98,7 @@ async function odooCall<T = unknown>(
   uid: number
 ): Promise<OdooResult> {
   try {
-    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.jsonrpcPath}`, {
+    const response = await fetch(`${getOdooConfigLazy().url}${getOdooConfigLazy().jsonrpcPath}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -77,7 +109,7 @@ async function odooCall<T = unknown>(
         params: {
           service: "object",
           method: "execute_kw",
-          args: [ODOO_CONFIG.db, uid, ODOO_CONFIG.apiKey, model, method, args],
+          args: [getOdooConfigLazy().db, uid, getOdooConfigLazy().apiKey, model, method, args],
         },
         id: Date.now(),
       }),
@@ -117,7 +149,7 @@ async function odooCall<T = unknown>(
  */
 export async function odooAuthenticate(): Promise<{ uid: number } | null> {
   try {
-    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.jsonrpcPath}`, {
+    const response = await fetch(`${getOdooConfigLazy().url}${getOdooConfigLazy().jsonrpcPath}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -129,9 +161,9 @@ export async function odooAuthenticate(): Promise<{ uid: number } | null> {
           service: "common",
           method: "authenticate",
           args: [
-            ODOO_CONFIG.db,
-            ODOO_CONFIG.username,
-            ODOO_CONFIG.apiKey,
+            getOdooConfigLazy().db,
+            getOdooConfigLazy().username,
+            getOdooConfigLazy().apiKey,
             {},
           ],
         },
@@ -158,7 +190,7 @@ export async function odooAuthenticate(): Promise<{ uid: number } | null> {
  */
 export async function checkOdooConnection(): Promise<boolean> {
   try {
-    const response = await fetch(`${ODOO_CONFIG.url}${ODOO_CONFIG.jsonrpcPath}`, {
+    const response = await fetch(`${getOdooConfigLazy().url}${getOdooConfigLazy().jsonrpcPath}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -662,5 +694,5 @@ export async function notifyOdooError(error: string, context: string): Promise<v
   // In production, this should send a notification to the Owner
 }
 
-// Export config for testing/debugging
-export { ODOO_CONFIG };
+// Export config getter for testing/debugging
+export { getOdooConfig, getOdooConfigLazy };

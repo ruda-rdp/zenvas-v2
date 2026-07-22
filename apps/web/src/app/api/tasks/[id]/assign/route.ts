@@ -82,6 +82,11 @@ export async function POST(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Verify target user is in the same organization (tenant isolation)
+    if (targetUser.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Cannot assign task to user from different organization" }, { status: 403 });
+    }
+
     // Verify the target user has access to this brand (if brand-specific)
     if (task.stage.project.brandId) {
       const userBrandAccess = await prisma.brandAccess.findUnique({

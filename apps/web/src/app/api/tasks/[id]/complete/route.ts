@@ -45,6 +45,11 @@ export async function POST(
                 orderId: true,
                 brandId: true,
               },
+              include: {
+                order: {
+                  select: { brandId: true },
+                },
+              },
             },
           },
         },
@@ -62,7 +67,8 @@ export async function POST(
 
     // For OWNER/MANAGER, check brand access (tenant isolation)
     if (session.user.role === "OWNER" || session.user.role === "MANAGER") {
-      const brandId = task.stage.project.brandId;
+      // Resolve brandId: check project.brandId first, then project.order.brandId
+      const brandId = task.stage.project.brandId ?? task.stage.project.order?.brandId;
       if (brandId) {
         const hasAccess = await canAccessBrand(brandId);
         if (!hasAccess) {
