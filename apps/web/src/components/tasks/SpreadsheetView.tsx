@@ -48,11 +48,17 @@ const DEFAULT_COLUMNS: Column[] = [
 // Helper Functions
 // ============================================
 
-// Format date for display
+// Format date for display - handle ISO strings
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  try {
+    // Handle ISO format from API: "2024-01-15T00:00:00.000Z"
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
 }
 
 // Calculate duration between dates
@@ -61,6 +67,7 @@ function getDuration(start: string | null, end: string | null): string {
   try {
     const s = new Date(start);
     const e = new Date(end);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return "-";
     const days = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
     if (days < 1) return "<1d";
     if (days === 1) return "1d";
@@ -519,7 +526,6 @@ export default function SpreadsheetView({
   const renderCell = (ft: FlattenedTask, column: Column) => {
     const task = ft.task;
     const isEditing = editingCell?.taskId === task.id && editingCell?.columnId === column.id;
-    const indentPadding = ft.depth * 20;
 
     // Checkbox
     if (column.id === "checkbox") {

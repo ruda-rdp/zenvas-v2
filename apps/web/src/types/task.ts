@@ -35,8 +35,8 @@ export interface Task {
   description: string | null;
   tags: string[];
   children: Task[];
-  order: number;
-  stageId: string;
+  order?: number;
+  stageId?: string;
   stageName?: string;
 }
 
