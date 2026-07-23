@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PACKAGES, getPackage, calculatePackageInstallApps } from "@/lib/packages";
 import { canUninstall, resolveDependencies } from "@/lib/app-resolver";
+import { getApp, getAppsByPackage } from "@/lib/apps";
 
 /**
  * GET /api/apps
@@ -25,6 +26,23 @@ export async function GET() {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
+    // Build app details with implementation status
+    const getAppDetails = (pkgId: string) => {
+      const pkgApps = getAppsByPackage(pkgId);
+      return pkgApps.map(app => ({
+        id: app.id,
+        name: app.name,
+        description: app.description,
+        longDescription: app.longDescription,
+        features: app.features,
+        icon: app.icon,
+        isImplemented: app.isImplemented,
+        isCore: app.isCore,
+        dependencies: app.dependencies,
+        isInstalled: org.apps?.includes(app.id) || false,
+      }));
+    };
+
     return NextResponse.json({
       packages: org.packages || [],
       apps: org.apps || [],
@@ -38,6 +56,7 @@ export async function GET() {
         isCore: pkg.isCore,
         tier: pkg.tier,
         isInstalled: org.packages?.includes(pkg.id) || false,
+        apps: getAppDetails(pkg.id),
       })),
     });
   } catch (error) {
@@ -179,6 +198,8 @@ export async function DELETE(request: NextRequest) {
     const packageApps = [...pkg.coreApps, ...pkg.optionalApps];
 
     // Check if any apps are required by other packages
+    // Note: We only remove from the apps[] array, NOT from the database.
+    // This means data is PRESERVED and can be recovered when reinstalling.
     const appsToRemove: string[] = [];
     const appsToKeep: string[] = [];
 

@@ -485,8 +485,8 @@ function TaskCard({
               <span className="text-orange-500">Unassigned</span>
             )}
             <span>⏱️ {task.expectedDurationMinutes}m</span>
-            {task.children.length > 0 && (
-              <span>📋 {task.children.length} subtask{task.children.length > 1 ? "s" : ""}</span>
+            {(task.children || []).length > 0 && (
+              <span>📋 {(task.children || []).length} subtask{(task.children || []).length > 1 ? "s" : ""}</span>
             )}
           </div>
         </div>
@@ -532,9 +532,9 @@ function TaskCard({
       </div>
       
       {/* Subtasks preview */}
-      {task.children.length > 0 && (
+      {(task.children || []).length > 0 && (
         <div className="mt-2 pl-4 border-l-2 border-gray-300 dark:border-gray-600 space-y-1">
-          {task.children.slice(0, 3).map((child) => (
+          {(task.children || []).slice(0, 3).map((child) => (
             <div key={child.id} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
               <span className={child.status === "COMPLETE" ? "line-through" : ""}>{child.name}</span>
               <span className={`px-1 py-0.5 rounded ${getStatusBadge(child.status)}`}>

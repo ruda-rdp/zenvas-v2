@@ -16,10 +16,15 @@ export interface App {
   id: string;
   name: string;
   description: string;
+  longDescription?: string;   // Detailed description for app store
+  features?: string[];          // Feature list for app store
   icon: string;
   category: AppCategory;
   route: string;
   settingsRoute?: string;
+
+  // Implementation status
+  isImplemented: boolean;        // false = Coming Soon
 
   // Dependency system
   dependencies: string[];      // App IDs that MUST be installed first
@@ -54,6 +59,8 @@ export const APPS: App[] = [
     id: "dashboard",
     name: "Dashboard",
     description: "Mission Control - Overview & Analytics",
+    longDescription: "Your central hub for monitoring all workspace activities. View project progress, team performance, and business metrics at a glance.",
+    features: ["Real-time project overview", "Team activity feed", "Performance metrics", "Quick actions"],
     icon: "🎯",
     category: "core",
     route: "/dashboard",
@@ -61,6 +68,7 @@ export const APPS: App[] = [
     partOf: "core",
     isCore: true,
     isStandalone: true,
+    isImplemented: true,
     requiredRole: "ALL",
     alwaysEnabled: true,
   },
@@ -68,6 +76,8 @@ export const APPS: App[] = [
     id: "settings",
     name: "Settings",
     description: "Workspace and app settings",
+    longDescription: "Configure your workspace settings, manage integrations, and control user access.",
+    features: ["Workspace configuration", "Team management", "Integration settings", "Security settings"],
     icon: "⚙️",
     category: "core",
     route: "/settings",
@@ -75,6 +85,7 @@ export const APPS: App[] = [
     partOf: "core",
     isCore: true,
     isStandalone: true,
+    isImplemented: true,
     requiredRole: "ALL",
     alwaysEnabled: true,
   },
@@ -82,6 +93,8 @@ export const APPS: App[] = [
     id: "profile",
     name: "My Profile",
     description: "Personal account settings",
+    longDescription: "Manage your personal account settings, password, and notification preferences.",
+    features: ["Profile information", "Password management", "Notification preferences", "Avatar upload"],
     icon: "👤",
     category: "core",
     route: "/profile",
@@ -89,18 +102,21 @@ export const APPS: App[] = [
     partOf: "core",
     isCore: true,
     isStandalone: true,
+    isImplemented: true,
     requiredRole: "ALL",
     alwaysEnabled: true,
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // PROJECT OS - Core Apps
+  // PROJECT OS - Core Apps (IMPLEMENTED)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "projects",
     name: "Projects",
     description: "Project management with stages and tasks",
+    longDescription: "Organize and manage all your production projects. Create stages, add tasks, and track progress from pre-production to delivery.",
+    features: ["Project creation", "Stage management", "Task tracking", "Progress analytics"],
     icon: "📁",
     category: "project-os",
     route: "/projects",
@@ -108,6 +124,7 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "ALL",
   },
   {
@@ -121,12 +138,15 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "ALL",
   },
   {
     id: "tasks",
     name: "Tasks",
     description: "Task management (internal)",
+    longDescription: "Break down work into manageable tasks. Assign to team members, set priorities, and track completion.",
+    features: ["Task creation", "Assignment", "Priority levels", "Due dates", "Comments"],
     icon: "✅",
     category: "project-os",
     route: "/projects",
@@ -134,12 +154,15 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "ALL",
   },
   {
     id: "board",
     name: "Board",
     description: "Kanban board for task visibility",
+    longDescription: "Visual Kanban board for editors to see and manage their assigned tasks. Drag and drop to update status.",
+    features: ["Kanban view", "Drag & drop", "Quick status updates", "Editor focus view"],
     icon: "🎯",
     category: "project-os",
     route: "/board",
@@ -147,30 +170,50 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "EDITOR",
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // PROJECT OS - Optional Apps
+  // PROJECT OS - Optional Apps (COMING SOON)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "scriptwriter",
     name: "Scriptwriter",
-    description: "Screenplay and script writing tool",
+    description: "AI-powered screenplay writing and scene breakdown",
+    longDescription: "A professional screenplay writing tool with AI assistance. Auto-format to industry standards, generate scene breakdowns, and get AI suggestions for dialogue and action lines.",
+    features: [
+      "Industry-standard screenplay format",
+      "AI dialogue suggestions",
+      "Auto scene breakdown",
+      "Character management",
+      "Location tracking",
+      "Export to PDF/Final Draft"
+    ],
     icon: "✍️",
     category: "project-os",
     route: "/scriptwriter",
     dependencies: ["projects"],
     partOf: "project-os",
-    isCore: false, // Optional - user can deselect
+    isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "storyboard",
     name: "Storyboard",
-    description: "Visual storyboard canvas",
+    description: "Visual storyboard canvas for shot planning",
+    longDescription: "Create stunning visual storyboards with our Milanote-inspired canvas. Draw, upload images, add annotations, and plan your shots visually.",
+    features: [
+      "Visual canvas workspace",
+      "Upload reference images",
+      "Draw and annotate",
+      "Shot composition notes",
+      "Export to PDF",
+      "Team collaboration"
+    ],
     icon: "🎨",
     category: "project-os",
     route: "/storyboard",
@@ -178,12 +221,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "shotlist",
     name: "Shotlist",
-    description: "Production shot breakdown",
+    description: "Detailed shot breakdown and production planning",
+    longDescription: "Create comprehensive shot lists for production days. Plan every shot with camera angles, lenses, movements, and equipment requirements.",
+    features: [
+      "Shot database per project",
+      "Camera & lens specs",
+      "Movement notation",
+      "Equipment checklist",
+      "Export to call sheet",
+      "Day-by-day planning"
+    ],
     icon: "🎬",
     category: "project-os",
     route: "/shotlist",
@@ -191,12 +244,21 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "timeline-notes",
     name: "Timeline Notes",
-    description: "Editorial timeline notes",
+    description: "Editorial notes and timeline annotations",
+    longDescription: "Add notes directly to your editing timeline. Mark review points, communicate feedback, and track approval status on specific timecodes.",
+    features: [
+      "Timeline annotation",
+      "Timecode markers",
+      "Feedback comments",
+      "Approval workflow",
+      "Export notes to PDF"
+    ],
     icon: "📝",
     category: "project-os",
     route: "/timeline",
@@ -204,12 +266,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "EDITOR",
   },
   {
     id: "scheduling",
     name: "Scheduling",
-    description: "Production scheduling and calendar",
+    description: "Production calendar and call sheet generation",
+    longDescription: "Plan your production schedule with an intuitive calendar. Automatically generate professional call sheets for crew.",
+    features: [
+      "Production calendar",
+      "Automatic call sheet generation",
+      "Crew scheduling",
+      "Location booking",
+      "Weather integration",
+      "Google Calendar sync"
+    ],
     icon: "📅",
     category: "project-os",
     route: "/schedule",
@@ -217,12 +289,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "locations",
     name: "Locations",
-    description: "Location management and recce",
+    description: "Location scouting and management",
+    longDescription: "Build your location library, schedule scouts, track permits, and manage sound reports for all your shooting locations.",
+    features: [
+      "Location database",
+      "Photo gallery",
+      "Scout scheduling",
+      "Permit tracking",
+      "Sound reports",
+      "Map integration"
+    ],
     icon: "📍",
     category: "project-os",
     route: "/locations",
@@ -230,12 +312,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "dailies",
     name: "Dailies",
-    description: "Daily footage review",
+    description: "Daily footage review and sync",
+    longDescription: "Review daily footage with your team. Sync from cameras, add notes, and manage approval workflow for takes.",
+    features: [
+      "Camera sync",
+      "Frame.io integration",
+      "Print/Favorite/Reject takes",
+      "Timestamped notes",
+      "Team review",
+      "Sync to editing"
+    ],
     icon: "🎥",
     category: "project-os",
     route: "/dailies",
@@ -243,12 +335,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "EDITOR",
   },
   {
     id: "vfx-tracker",
     name: "VFX Tracker",
-    description: "Visual effects tracking",
+    description: "Track visual effects from onset to delivery",
+    longDescription: "Manage your VFX pipeline from shot planning to final delivery. Track vendors, versions, and approval status.",
+    features: [
+      "VFX shot database",
+      "Vendor assignment",
+      "Version tracking",
+      "Delivery timeline",
+      "Approval workflow",
+      "Client review portal"
+    ],
     icon: "✨",
     category: "project-os",
     route: "/vfx",
@@ -256,12 +358,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "deliverables",
     name: "Deliverables",
-    description: "Delivery specifications and tracking",
+    description: "Delivery specifications and QC checklist",
+    longDescription: "Ensure every delivery meets specifications. Build QC checklists for Netflix, broadcast, and streaming requirements.",
+    features: [
+      "Spec templates (Netflix, broadcast)",
+      "QC checklist",
+      "Technical verification",
+      "Audio loudness check",
+      "Delivery tracking",
+      "Archive management"
+    ],
     icon: "📦",
     category: "project-os",
     route: "/deliverables",
@@ -269,12 +381,22 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "music-sound",
     name: "Music & Sound",
-    description: "Music and sound library",
+    description: "Music licensing and soundtrack management",
+    longDescription: "Manage your music library and licensing. Track cues, sync rights, and delivery specifications for music.",
+    features: [
+      "Music cue database",
+      "License tracking",
+      "Royalty management",
+      "Mix delivery specs",
+      "Music cue sheets",
+      "Library integration"
+    ],
     icon: "🎵",
     category: "project-os",
     route: "/music",
@@ -282,17 +404,20 @@ export const APPS: App[] = [
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // HUMAN CAPITAL OS - Core Apps
+  // HUMAN CAPITAL OS - Core Apps (IMPLEMENTED)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "team",
     name: "Team",
-    description: "Manage team members and brand access",
+    description: "Manage team members and workspace access",
+    longDescription: "Build and manage your production team. Invite members, assign roles, and control access to projects and brands.",
+    features: ["Member invitations", "Role management", "Brand access control", "Activity tracking"],
     icon: "👥",
     category: "human-capital-os",
     route: "/team",
@@ -300,12 +425,15 @@ export const APPS: App[] = [
     partOf: "human-capital-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "ALL",
   },
   {
     id: "payouts",
     name: "Payouts",
     description: "Editor wallet and withdrawal management",
+    longDescription: "Track editor earnings, manage wallets, and process withdrawal requests. Editors can see their balance and request payouts.",
+    features: ["Editor earnings tracking", "Wallet balance", "Withdrawal requests", "Payment history"],
     icon: "💰",
     category: "human-capital-os",
     route: "/payouts",
@@ -313,17 +441,20 @@ export const APPS: App[] = [
     partOf: "human-capital-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "OWNER",
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // HUMAN CAPITAL OS - Optional Apps
+  // HUMAN CAPITAL OS - Optional Apps (COMING SOON)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "attendance",
     name: "Attendance",
     description: "Team clock in/out tracking",
+    longDescription: "Track team working hours with clock in/out functionality. Perfect for in-house teams and freelancers tracking billable hours.",
+    features: ["Clock in/out", "Working hours tracking", "Billable hours", "Attendance reports"],
     icon: "🕐",
     category: "human-capital-os",
     route: "/attendance",
@@ -331,12 +462,15 @@ export const APPS: App[] = [
     partOf: "human-capital-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "payroll",
     name: "Payroll",
-    description: "Salary calculation and processing",
+    description: "Salary calculation and payment processing",
+    longDescription: "Process monthly payroll for your team. Calculate salaries based on hours worked, deduct taxes, and generate payment batches.",
+    features: ["Salary calculation", "Tax deductions", "Payment batches", "Payslip generation"],
     icon: "💳",
     category: "human-capital-os",
     route: "/payroll",
@@ -344,12 +478,15 @@ export const APPS: App[] = [
     partOf: "human-capital-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "recruitment",
     name: "Recruitment",
-    description: "Hiring pipeline and candidate management",
+    description: "Hiring pipeline and talent management",
+    longDescription: "Build a talent pipeline for your production needs. Post openings, track candidates, and manage the hiring process.",
+    features: ["Job postings", "Candidate tracking", "Interview scheduling", "Offer management"],
     icon: "🤝",
     category: "human-capital-os",
     route: "/recruitment",
@@ -357,17 +494,20 @@ export const APPS: App[] = [
     partOf: "human-capital-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // BUSINESS OS - Core Apps
+  // BUSINESS OS - Core Apps (IMPLEMENTED)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "clients",
     name: "Clients",
     description: "Client management and contacts",
+    longDescription: "Manage your client database with contacts, company info, and communication history. Perfect for production studios with multiple clients.",
+    features: ["Client database", "Contact management", "Company profiles", "Communication history"],
     icon: "🏢",
     category: "business-os",
     route: "/clients",
@@ -375,12 +515,15 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "OWNER",
   },
   {
     id: "orders",
     name: "Orders",
-    description: "Order lifecycle and invoice management",
+    description: "Order lifecycle and project management",
+    longDescription: "Create and manage project orders from proposal to delivery. Track intake forms, create projects, and monitor order status.",
+    features: ["Order creation", "Intake forms", "Project linking", "Status tracking"],
     icon: "📋",
     category: "business-os",
     route: "/orders",
@@ -388,12 +531,15 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "OWNER",
   },
   {
     id: "leads",
     name: "Leads",
     description: "Lead capture and qualification funnel",
+    longDescription: "Capture and qualify leads from various sources. Track status from new to won, manage follow-ups, and convert to clients.",
+    features: ["Lead capture", "Pipeline kanban", "Status qualification", "Source tracking", "Follow-up reminders"],
     icon: "📝",
     category: "business-os",
     route: "/leads",
@@ -401,17 +547,20 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: true,
     isStandalone: false,
+    isImplemented: true,
     requiredRole: "OWNER",
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // BUSINESS OS - Optional Apps
+  // BUSINESS OS - Optional Apps (COMING SOON)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "invoices",
     name: "Invoices",
-    description: "Invoice creation and tracking",
+    description: "Invoice creation and payment tracking",
+    longDescription: "Generate professional invoices and track payments. Integrate with Odoo for accounting and financial reporting.",
+    features: ["Invoice generation", "Payment tracking", "Odoo sync", "Financial reports"],
     icon: "📄",
     category: "business-os",
     route: "/invoices",
@@ -419,12 +568,15 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "client-portal",
     name: "Client Portal",
-    description: "Client-facing project portal",
+    description: "White-label client-facing project portal",
+    longDescription: "Give clients their own portal to view project progress, review deliverables, and approve content. White-label with your branding.",
+    features: ["Project progress view", "Review & approval", "Deliverable downloads", "Custom branding", "Custom domain"],
     icon: "🌐",
     category: "business-os",
     route: "/portal",
@@ -432,12 +584,15 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "analytics",
     name: "Analytics",
     description: "Business analytics and insights",
+    longDescription: "Get deep insights into your business performance. Track revenue, project metrics, team productivity, and lead conversion.",
+    features: ["Revenue analytics", "Project metrics", "Team productivity", "Lead conversion funnel"],
     icon: "📊",
     category: "business-os",
     route: "/analytics",
@@ -445,12 +600,15 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
   {
     id: "branding-kit",
     name: "Branding Kit",
-    description: "Brand assets and guidelines",
+    description: "Brand assets and guidelines management",
+    longDescription: "Centralize brand assets for clients. Upload logos, color palettes, and brand guidelines. Clients can access from their portal.",
+    features: ["Asset library", "Color palettes", "Brand guidelines", "Client access"],
     icon: "🎨",
     category: "business-os",
     route: "/branding",
@@ -458,17 +616,20 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // INTEGRATIONS
+  // INTEGRATIONS (COMING SOON)
   // ═══════════════════════════════════════════════════════════════
 
   {
     id: "odoo-sync",
     name: "Odoo Accounting",
-    description: "Sync clients and invoices with Odoo ERP",
+    description: "Sync with Odoo ERP for accounting",
+    longDescription: "Two-way sync with Odoo ERP. Sync clients as contacts, orders as sales orders, and invoices automatically.",
+    features: ["Client sync", "Order sync", "Invoice sync", "Real-time sync"],
     icon: "🔄",
     category: "integrations",
     route: "/settings/integrations/odoo",
@@ -476,6 +637,7 @@ export const APPS: App[] = [
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
+    isImplemented: false, // Coming Soon
     requiredRole: "OWNER",
   },
 ];
