@@ -151,6 +151,9 @@ export async function PATCH(
     // Build update data
     const updateData: Record<string, unknown> = {};
     
+    // Get body for new fields
+    const { dueDate, startDate, priority, description, tags } = body;
+    
     if (status) {
       updateData.status = status;
       
@@ -227,6 +230,29 @@ export async function PATCH(
             amount: payoutAmount,
           },
         });
+      }
+    }
+    
+    // New fields for Jacob - accessible by Owner/Manager
+    if (session.user.role !== "EDITOR") {
+      if (dueDate !== undefined) {
+        updateData.dueDate = dueDate ? new Date(dueDate) : null;
+      }
+      
+      if (startDate !== undefined) {
+        updateData.startDate = startDate ? new Date(startDate) : null;
+      }
+      
+      if (priority !== undefined) {
+        updateData.priority = priority;
+      }
+      
+      if (description !== undefined) {
+        updateData.description = description;
+      }
+      
+      if (tags !== undefined) {
+        updateData.tags = tags || [];
       }
     }
 

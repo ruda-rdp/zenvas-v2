@@ -276,6 +276,7 @@ model Project {
   storyboardUrls String[] // URLs to storyboard images
 
   stages    Stage[]
+  chats     ProjectChat[] // Jacob: Live chat messages
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -302,6 +303,13 @@ enum TaskStatus {
   COMPLETE
 }
 
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 enum TaskCategory {
   PRE_PRODUCTION   // script breakdown, location recce, storyboarding
   PRODUCTION       // principal work (shoot, recording)
@@ -324,6 +332,9 @@ model Task {
   status                 TaskStatus @default(OPEN)
   category               TaskCategory?
 
+  // Priority (Jacob feature)
+  priority               TaskPriority @default(MEDIUM)
+
   // Origin
   isFromTemplate         Boolean    @default(true)
                           // true = exploded from Service.stageTemplate
@@ -336,10 +347,18 @@ model Task {
   // Payout (parent only)
   payoutAmount           Decimal?   @db.Decimal(12, 2)
 
-  // Timing
+  // Timing - Duration based
   expectedDurationMinutes Int
   startedAt              DateTime?
   completedAt            DateTime?
+
+  // Timing - Date based (for Gantt)
+  dueDate               DateTime?  // When task should be completed
+  startDate             DateTime?  // When task should start
+
+  // Description & Tags
+  description            String?    // Task notes/details
+  tags                  String[]    // ["urgent", "script", "casting"]
 
   // Visibility
   clientVisible          Boolean    @default(true)
@@ -347,6 +366,10 @@ model Task {
                           // false = INTERNAL_ONLY
 
   payout                 Payout?
+  
+  // Jacob: Comments
+  comments              TaskComment[]
+  
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 
@@ -354,6 +377,8 @@ model Task {
   @@index([parentTaskId])
   @@index([assigneeUserId])
   @@index([status])
+  @@index([priority])
+  @@index([dueDate])
 }
 
 // ── USER, ROLE, BRAND ACCESS (Human Capital OS - CORE) ───────────────
@@ -429,6 +454,11 @@ model User {
   leads           Lead[]
   withdrawals     WithdrawalRequest[]
   notifications   Notification[]
+  
+  // Jacob: Chat and comments
+  projectChats    ProjectChat[]
+  taskComments    TaskComment[]
+  
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -563,5 +593,56 @@ model ActivityLog {
   @@index([entityType, entityId])
   @@index([userId])
   @@index([type])
+  @@index([createdAt])
+}
+
+// ── PROJECT CHAT (Jacob Feature - Live Chat) ───────────────────
+
+model ProjectChat {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  content   String   // Message content
+  mentions  String[] // Array of user IDs mentioned with @
+  
+  // For threaded replies
+  parentId  String?
+  parent    ProjectChat? @relation("ChatReplies", fields: [parentId], references: [id])
+  replies   ProjectChat[] @relation("ChatReplies")
+  
+  // Soft delete
+  deletedAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+// ── TASK COMMENTS (Jacob Feature) ─────────────────────────────
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  content   String   // Message content
+  mentions  String[] // Array of user IDs mentioned with @
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+  @@index([userId])
   @@index([createdAt])
 }
