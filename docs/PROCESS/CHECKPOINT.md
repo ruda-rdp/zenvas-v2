@@ -1,7 +1,7 @@
 # Zenvas v2 - Development Checkpoint
 
-**Last Updated:** 2026-07-23
-**Last Commit:** `4cf49d0` - (see git log)
+**Last Updated:** 2026-07-24
+**Last Commit:** `e35f790` - feat: Implement global live chat system
 **Branch:** main
 
 ---
@@ -38,11 +38,14 @@
 | Organizations | ✅ | Settings API |
 | **Lead Management** | ✅ | Full lifecycle |
 | **Order Management** | ✅ | Full lifecycle + Odoo sync |
-| **Project Management** | ✅ | CRUD + Solo mode |
-| **Task Management** | ✅ | Get/Update/Apply/Assign/Complete |
+| **Project Management** | ✅ | CRUD + Solo mode + 4-stage tabs |
+| **Task Management** | ✅ | Get/Update/Apply/Assign/Complete + Premium Task Manager |
 | **Client Portal / Domain Routing** | ⏳ | ADR-0003 defined, not wired — planned next (D2) |
 | **Payout & Wallet** | ✅ | Full payout system |
 | **Editor Board** | ✅ | Task board for editors |
+| **Global Chat** | ✅ | Live messaging + @mentions + presence |
+| **App Store** | ✅ | Browse/install Apps |
+| **Superadmin Enhancement** | ✅ | Hierarchy view + audit logs |
 
 ### API Endpoints (Working)
 

@@ -7,8 +7,8 @@ Depends On:
 - CONTEXT.md
 
 Related Documents:
-- MODULES/APP_STORE.md (Module Manager / App Store specification)
-- MODULES/MODULE_REGISTRY.md (Complete module catalog)
+- ARCHITECTURE/APP_REGISTRY.md (App Registry - source of truth)
+- ARCHITECTURE/MODULAR_APP_SYSTEM.md (Technical specification)
 
 ---
 
@@ -122,7 +122,7 @@ These modules are the foundation — cannot be uninstalled.
 - Auth & Users
 - Organizations & Brands
 - Roles & Permissions
-- Module Manager (App Store) — *See [APP_STORE.md](../MODULES/APP_STORE.md) for full specification*
+- Module Manager (App Store)
 - Activity Log (global)
 
 ### BUSINESS OS Modules

@@ -29,8 +29,8 @@ IMPLEMENTATION-PLAN.md's Build Order (Phase A onward).
 Zenvas is built on a **modular OS architecture** (see FOUNDATION.md).
 Each module can be installed, upgraded, or uninstalled independently.
 
-> 📚 **See [APP_STORE.md](../MODULES/APP_STORE.md)** for the Module Manager specification.
-> See [MODULE_REGISTRY.md](../MODULES/MODULE_REGISTRY.md) for the complete module catalog.
+> 📚 **See [APP_REGISTRY.md](../ARCHITECTURE/APP_REGISTRY.md)** for the App Registry (source of truth).
+> See [MODULAR_APP_SYSTEM.md](../ARCHITECTURE/MODULAR_APP_SYSTEM.md) for technical specification.
 
 ### Phase 1: MVP (Now)
 Modules that must be built first.
@@ -40,7 +40,7 @@ CORE MODULES (Always installed)
 ├── Auth & Users
 ├── Organizations & Brands
 ├── Roles & Permissions
-├── Module Manager (App Store) ← Full spec in APP_STORE.md
+├── Module Manager (App Store) ← Full spec in APP_REGISTRY.md
 └── Activity Log (global)
 
 BUSINESS OS
@@ -58,7 +58,7 @@ COLLABORATION
 ```
 
 ### Phase 2: App Store & Module Expansion (Post-MVP)
-> 📚 Full module catalog: [MODULE_REGISTRY.md](../MODULES/MODULE_REGISTRY.md)
+> 📚 Full module catalog: [APP_REGISTRY.md](../ARCHITECTURE/APP_REGISTRY.md)
 
 Unified inbox + external integrations.
 

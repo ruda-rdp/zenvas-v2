@@ -65,6 +65,17 @@ function AppCard({ appDetail }: { appDetail: AppDetail }) {
   const showComingSoon = !app.isImplemented;
   const canInstall = !showComingSoon && !isInstalled;
 
+  // Build type badge (D6)
+  const buildTypeBadge = app.buildType === "native" ? (
+    <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full flex-shrink-0">
+      Built-in
+    </span>
+  ) : (
+    <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full flex-shrink-0">
+      Powered by Odoo
+    </span>
+  );
+
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-xl border transition-all ${
       showComingSoon
@@ -89,10 +100,11 @@ function AppCard({ appDetail }: { appDetail: AppDetail }) {
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-semibold text-gray-900 dark:text-white truncate">
                 {app.name}
               </h4>
+              {buildTypeBadge}
               {showComingSoon && (
                 <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full flex-shrink-0">
                   Coming Soon

@@ -1,11 +1,10 @@
-# ADR-0005: Modular Architecture - Paket & Apps System
+# ADR-0005: Modular Architecture - Apps System
 
 **Status:** Accepted
 **Date:** 2026-07-21
-**Replaces:** Part of ADR-0003 domain routing
+**Updated:** 2026-07-24 (v1.1)
 **Context:** CONTEXT.md (Updated)
-
-**Updated:** 2026-07-23 — Refined terminology: Paket vs Apps distinction
+**Supersedes:** This ADR is superseded by `docs/ARCHITECTURE/APP_REGISTRY.md` for the App schema definition. See that file as the authoritative source.
 
 ---
 
@@ -32,61 +31,58 @@ Growing Creator (Dewa): Might have clients, but not website
 
 ---
 
-## Terminology: Paket vs Apps
+## Terminology Update (v1.1)
 
-**CRITICAL DISTINCTION:**
+**IMPORTANT:** As of 2026-07-24, the terminology has been refined:
 
-| Term | Definition | Example |
-|------|-----------|---------|
-| **Paket** | Bundle/package of related apps | Project OS, Human Capital OS, Business OS |
-| **Apps** | Individual tools within a paket | Scriptwriter, Storyboard, Attendance, Invoicing |
-| **Organization** | Tenant - installs paket | Jacob Film Studio |
-| **Brand** | Identity - belongs to organization | Jacob Film Studio brand |
+| Old Term | New Term | Notes |
+|----------|----------|-------|
+| Paket | **Category** | Store shelf label for browsing, not installable |
+| Apps | **Apps** | Individual tools, installable one by one |
+| `paket` field | N/A | Removed — no longer used in database |
 
-### Paket Breakdown
+See `docs/ARCHITECTURE/APP_REGISTRY.md` for the definitive App schema.
+
+---
+
+## Core Concepts
+
+### 1. Apps Are Installed One by One
+
+Users browse the App Store by **category** but install **individual Apps**:
 
 ```
-PAKET: Human Capital OS
-├── Attendance (clock in/out)
-├── Appraisals (performance review)
-├── Payroll (salary calculation)
-├── Wallet (payout tracking)
-└── Recruitment (hiring pipeline)
-
-PAKET: Business OS
-├── Client Portal (client-facing interface)
-├── Invoicing (create & send invoices)
-├── Subscription (recurring billing)
-├── Lead Management (pipeline)
-└── Odoo Sync (accounting integration)
-
-PAKET: Project OS
-├── Production Apps
-│   ├── Scriptwriter (screenplay writing)
-│   ├── Storyboard (visual planning)
-│   ├── Canvas (Milanote-like freeform board)
-│   ├── Cadrage (shot composition tool)
-│   ├── Shotlist (production breakdown)
-│   └── Call Sheets (daily schedule) [Production]
-├── Post Apps
-│   ├── Timeline Notes (editorial notes)
-│   ├── VFX Tracker (effects tracking)
-│   └── Color Reference (LUT management)
-└── Delivery Apps
-    ├── Review Links (client review)
-    ├── Deliverables (format specs)
-    └── Festival Tracker (submission)
+User Journey:
+1. Opens App Store
+2. Browses "Project OS" category
+3. Sees: Scriptwriter, Storyboard, Shotlist, etc.
+4. Clicks "Install" on Scriptwriter
+5. (Dependencies auto-install if any)
 ```
 
-### Organization Schema
+### 2. Categories Are Shelves, Not Units
 
-```typescript
-model Organization {
-  plan      String   @default("solo")  // solo | growing | agency
-  paket     String[] @default(["project-os", "human-capital-os"]) 
-  // apps are installed per-paket
-}
-```
+Categories (Project OS, Human Capital OS, Business OS) are **store shelf labels** — they help users browse. Users do not "install a category."
+
+### 3. Packages Are Curated Shortcuts
+
+Packages (e.g., "Business Suite") are **optional shortcuts** that select multiple Apps at once. They are NOT a prerequisite layer.
+
+### 4. Always-Enabled Apps
+
+Some Apps cannot be disabled:
+- Dashboard
+- Settings
+- Profile
+- Projects
+- Tasks
+- Team
+
+Platform capabilities (always present, not in App Store):
+- Auth
+- Organization
+- Brand
+- Roles
 
 ---
 
@@ -118,71 +114,43 @@ Per-session deep development:
 ### Phase 3: Business OS (Optional Add-on)
 **Focus:** Client Management
 
-When ready, install Business OS:
+When ready, install Business OS Apps:
 - Lead Management
 - Client Portal
 - Order Flow
 - Odoo Integration
 - Invoicing
 
+> **Note:** Business OS can be installed at any time — it's not gated to a specific phase. The roadmap phases describe a typical journey, not technical gates.
+
 ---
 
-This is a **fundamental architectural decision** that affects:
-- Database schema (Brand model)
-- Routing system (domain/subdomain handling)
-- Feature flag system
-- Onboarding flow
+## Organization Schema
 
-## Decision
-
-### 1. Three OS Layers with Different Availability
-
-| Layer | Availability | Description |
-|-------|--------------|-------------|
-| **Project OS** | CORE (always on) | Projects, Stages, Tasks, Scripts, Storyboards |
-| **Human Capital OS** | CORE (always on) | Users, Roles, Board, Payout, Wallet |
-| **Business OS** | OPTIONAL (installable) | Clients, Orders, Invoices, Client Portal |
-
-### 2. Brand Simplification
-
-```
-BEFORE (assumes Business OS):
-model Brand {
-  domain         String  @unique  // HARUS ADA
-  isPersonalBrand Boolean
-  // ...
-}
-
-AFTER (Business OS optional):
-model Brand {
-  slug           String  @unique  // URL-safe identifier (always required)
-  domain         String? @unique  // Optional - only for Client Portal
-  freeSubdomain  String? @unique  // Free: "jacobfilm.zenvas-portal.app"
-  hasClientPortal Boolean @default(false)  // Toggle for Business features
-  // ...
-}
-```
-
-### 3. Organization Apps Model
-
-Organizations install "apps" to enable features:
-
-```
+```typescript
 model Organization {
-  // ...
-  plan      String   @default("solo")  // solo | growing | agency
-  apps      String[] @default(["project-os", "human-capital-os"]) 
-  // ...
+  id        String   @id @default(cuid())
+  name      String
+  slug      String?  @unique
+
+  // Plan & Apps
+  plan      String   @default("solo")  // "solo" | "growing" | "agency"
+  apps      String[] @default(["projects", "stages", "tasks", "board", "team", "payouts"])
+            // Individual app IDs that are enabled
+  
+  // ... other fields
 }
 ```
 
 | Plan | Default Apps | Can Add |
 |------|--------------|---------|
-| **Solo** | Project OS, Human Capital OS | Business OS |
-| **Growing** | Project OS, Human Capital OS, Business OS | Lead Management |
+| **Solo** | Dashboard, Settings, Profile, Projects, Tasks, Team, Board, Payouts | Any optional App |
+| **Growing** | Same as Solo + Clients, Leads, Orders | Analytics, Invoices, etc. |
 | **Agency** | All core apps | Odoo Sync, etc. |
 
-### 4. Routing Strategy for Client Portal
+---
+
+## Routing Strategy for Client Portal
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -218,24 +186,7 @@ model Organization {
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5. Subdomain Tiers
-
-| Tier | Example | Cost | Use Case |
-|------|---------|------|----------|
-| **Free subdomain** | `jacobfilm.zenvas-portal.app` | FREE | Solo/Growing creators |
-| **Custom domain** | `studio.eatprayedit.com` | User pays | Established studios |
-
-**Free subdomain logic:**
-```
-slug: "jacob-film"
-freeSubdomain: "jacobfilm.zenvas-portal.app"
-```
-
-Users can later add custom domain:
-```
-domain: "studio.jacobfilms.com"
-freeSubdomain: (still active, redirects to custom domain)
-```
+---
 
 ## Consequences
 
@@ -255,9 +206,11 @@ freeSubdomain: (still active, redirects to custom domain)
 
 ### Mitigations
 
-1. **Centralized Feature Hook** — Single `useFeatures(brandId)` hook for all feature checks
-2. **Route Guards** — Redirect if Business OS not installed
+1. **Centralized Feature Hook** — Single `useApps(brandId)` hook for all app checks
+2. **Route Guards** — Redirect if required App not installed
 3. **Default Onboarding** — Solo mode by default, prompted to add features later
+
+---
 
 ## Alternatives Considered
 
@@ -281,49 +234,18 @@ freeSubdomain: (still active, redirects to custom domain)
 - Future client projects
 - Multi-content-type separation (YouTube vs Wedding)
 
-## Implementation Notes
+---
 
-### Phase 1: Core Solo Mode
+## References
 
-```
-New User Onboarding:
-1. Create Organization
-2. Create First Brand (slug only, no domain)
-3. hasClientPortal: false by default
-4. apps: ["project-os", "human-capital-os"]
-5. Land on /projects
-```
-
-### Phase 2: Enable Business
-
-```
-App Store → Install "Business OS"
-1. Update organization.apps = ["project-os", "human-capital-os", "business-os"]
-2. User can now create Clients
-3. User can now create Orders
-4. (Optional) Enable Client Portal for any brand
-```
-
-### Phase 3: Client Portal
-
-```
-Brand Settings → Client Portal
-1. hasClientPortal: true
-2. freeSubdomain: auto-generated from slug
-3. User gets: jacobfilm.zenvas-portal.app
-4. User can optionally add custom domain
-```
-
-## Files to Update
-
-| File | Changes |
-|------|---------|
-| `schema.prisma` | Add `slug`, `freeSubdomain`, `hasClientPortal` to Brand; add `apps`, `plan` to Organization |
-| `pages/settings/brands` | Update create/edit to include new fields |
-| `middleware/proxy.ts` | Handle slug-based routing + free subdomain |
-| `lib/features.ts` | Create feature flag utilities |
-| `pages/onboarding` | Solo-first onboarding flow |
+- **App Schema:** `docs/ARCHITECTURE/APP_REGISTRY.md` (authoritative source)
+- **Technical Spec:** `docs/ARCHITECTURE/MODULAR_APP_SYSTEM.md`
+- **Constitution Rule #10:** `docs/DESIGN/CONSTITUTION.md` (integrate-first, native-when-matters)
 
 ---
 
-*Last updated: 2026-07-21*
+## Document History
+
+- v1.1 (2026-07-24): Updated terminology — categories are shelves, apps are installable units. Added reference to APP_REGISTRY.md as authoritative source.
+- v1.0 (2026-07-21): Initial version with Paket vs Apps distinction
+- (2026-07-23): Refined terminology: Paket vs Apps distinction

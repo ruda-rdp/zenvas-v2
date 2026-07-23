@@ -264,6 +264,20 @@ Current ADRs:
 
 ---
 
+## ARCHITECTURE/
+
+Technical specifications and system design.
+
+Documents:
+- APP_REGISTRY.md — **App Schema (source of truth)**
+- MODULAR_APP_SYSTEM.md — **Technical specification for modular app system**
+- BUSINESS_OS.md — Business operations domain
+- HUMAN_CAPITAL_OS.md — Human capital domain
+- PROJECT_OS.md — Project management domain
+- SECURITY_AUDIT.md — Security audit results
+
+---
+
 ## MVP_ROADMAP.md
 
 Defines what gets built first.

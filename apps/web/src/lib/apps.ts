@@ -8,9 +8,13 @@
  * - dependencies: Apps that must be installed before this app
  * - partOf: Package this app belongs to
  * - isCore: Whether this is a core app (auto-installed with package)
+ * - buildType: "native" (built by Zenvas) or "integration" (third-party)
  *
  * Based on ADR-0005: Modular Architecture
+ * Updated per D6-D12 decisions (2026-07-24)
  */
+
+export type BuildType = "native" | "integration";
 
 export interface App {
   id: string;
@@ -22,6 +26,9 @@ export interface App {
   category: AppCategory;
   route: string;
   settingsRoute?: string;
+
+  // Build type - user-visible badge in App Store (D6)
+  buildType: BuildType;
 
   // Implementation status
   isImplemented: boolean;        // false = Coming Soon
@@ -36,7 +43,7 @@ export interface App {
 
   // Access
   requiredRole: "OWNER" | "MANAGER" | "EDITOR" | "PRODUCER" | "ALL";
-  alwaysEnabled?: boolean;     // true = always shown (dashboard, settings, profile)
+  alwaysEnabled?: boolean;     // true = always shown, cannot be disabled (D10)
 }
 
 export type AppCategory =
@@ -44,7 +51,19 @@ export type AppCategory =
   | "project-os"              // Project management tools
   | "human-capital-os"        // Team management
   | "business-os"             // Client/business tools
+  | "ai-content-os"          // AI content production
+  | "collaboration"          // Chat, video calls
   | "integrations";           // Third-party integrations
+
+// Always-enabled apps that cannot be disabled (D10)
+export const ALWAYS_ENABLED_APPS = [
+  "dashboard",
+  "settings",
+  "profile",
+  "projects",
+  "tasks",
+  "team"
+] as const;
 
 // ─────────────────────────────────────────────────────────────────
 // APP DEFINITIONS
@@ -64,6 +83,7 @@ export const APPS: App[] = [
     icon: "🎯",
     category: "core",
     route: "/dashboard",
+    buildType: "native",
     dependencies: [],
     partOf: "core",
     isCore: true,
@@ -81,6 +101,7 @@ export const APPS: App[] = [
     icon: "⚙️",
     category: "core",
     route: "/settings",
+    buildType: "native",
     dependencies: [],
     partOf: "core",
     isCore: true,
@@ -98,6 +119,7 @@ export const APPS: App[] = [
     icon: "👤",
     category: "core",
     route: "/profile",
+    buildType: "native",
     dependencies: [],
     partOf: "core",
     isCore: true,
@@ -120,12 +142,14 @@ export const APPS: App[] = [
     icon: "📁",
     category: "project-os",
     route: "/projects",
+    buildType: "native",
     dependencies: [],
     partOf: "project-os",
     isCore: true,
     isStandalone: false,
     isImplemented: true,
     requiredRole: "ALL",
+    alwaysEnabled: true,
   },
   {
     id: "stages",
@@ -133,7 +157,8 @@ export const APPS: App[] = [
     description: "Project stages (internal)",
     icon: "📋",
     category: "project-os",
-    route: "/projects", // Internal, accessed via projects
+    route: "/projects",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: true,
@@ -150,12 +175,14 @@ export const APPS: App[] = [
     icon: "✅",
     category: "project-os",
     route: "/projects",
+    buildType: "native",
     dependencies: ["projects", "stages"],
     partOf: "project-os",
     isCore: true,
     isStandalone: false,
     isImplemented: true,
     requiredRole: "ALL",
+    alwaysEnabled: true,
   },
   {
     id: "board",
@@ -166,6 +193,7 @@ export const APPS: App[] = [
     icon: "🎯",
     category: "project-os",
     route: "/board",
+    buildType: "native",
     dependencies: ["projects", "tasks"],
     partOf: "project-os",
     isCore: true,
@@ -176,6 +204,7 @@ export const APPS: App[] = [
 
   // ═══════════════════════════════════════════════════════════════
   // PROJECT OS - Optional Apps (COMING SOON)
+  // Native filmmaking tools per Constitution Rule #10 (D8)
   // ═══════════════════════════════════════════════════════════════
 
   {
@@ -194,11 +223,12 @@ export const APPS: App[] = [
     icon: "✍️",
     category: "project-os",
     route: "/scriptwriter",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -217,11 +247,12 @@ export const APPS: App[] = [
     icon: "🎨",
     category: "project-os",
     route: "/storyboard",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -240,11 +271,12 @@ export const APPS: App[] = [
     icon: "🎬",
     category: "project-os",
     route: "/shotlist",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -262,11 +294,12 @@ export const APPS: App[] = [
     icon: "📝",
     category: "project-os",
     route: "/timeline",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "EDITOR",
   },
   {
@@ -285,11 +318,12 @@ export const APPS: App[] = [
     icon: "📅",
     category: "project-os",
     route: "/schedule",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -308,11 +342,12 @@ export const APPS: App[] = [
     icon: "📍",
     category: "project-os",
     route: "/locations",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -331,11 +366,12 @@ export const APPS: App[] = [
     icon: "🎥",
     category: "project-os",
     route: "/dailies",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "EDITOR",
   },
   {
@@ -354,11 +390,12 @@ export const APPS: App[] = [
     icon: "✨",
     category: "project-os",
     route: "/vfx",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -377,11 +414,12 @@ export const APPS: App[] = [
     icon: "📦",
     category: "project-os",
     route: "/deliverables",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -400,11 +438,12 @@ export const APPS: App[] = [
     icon: "🎵",
     category: "project-os",
     route: "/music",
+    buildType: "native",
     dependencies: ["projects"],
     partOf: "project-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
 
@@ -421,12 +460,14 @@ export const APPS: App[] = [
     icon: "👥",
     category: "human-capital-os",
     route: "/team",
+    buildType: "native",
     dependencies: [],
     partOf: "human-capital-os",
     isCore: true,
     isStandalone: false,
     isImplemented: true,
     requiredRole: "ALL",
+    alwaysEnabled: true,
   },
   {
     id: "payouts",
@@ -437,6 +478,7 @@ export const APPS: App[] = [
     icon: "💰",
     category: "human-capital-os",
     route: "/payouts",
+    buildType: "native",
     dependencies: ["team"],
     partOf: "human-capital-os",
     isCore: true,
@@ -458,11 +500,12 @@ export const APPS: App[] = [
     icon: "🕐",
     category: "human-capital-os",
     route: "/attendance",
+    buildType: "native",
     dependencies: ["team"],
     partOf: "human-capital-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -474,11 +517,12 @@ export const APPS: App[] = [
     icon: "💳",
     category: "human-capital-os",
     route: "/payroll",
+    buildType: "native",
     dependencies: ["team", "payouts"],
     partOf: "human-capital-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -490,11 +534,12 @@ export const APPS: App[] = [
     icon: "🤝",
     category: "human-capital-os",
     route: "/recruitment",
+    buildType: "native",
     dependencies: ["team"],
     partOf: "human-capital-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
 
@@ -511,6 +556,7 @@ export const APPS: App[] = [
     icon: "🏢",
     category: "business-os",
     route: "/clients",
+    buildType: "native",
     dependencies: [],
     partOf: "business-os",
     isCore: true,
@@ -527,6 +573,7 @@ export const APPS: App[] = [
     icon: "📋",
     category: "business-os",
     route: "/orders",
+    buildType: "native",
     dependencies: ["clients"],
     partOf: "business-os",
     isCore: true,
@@ -543,6 +590,7 @@ export const APPS: App[] = [
     icon: "📝",
     category: "business-os",
     route: "/leads",
+    buildType: "native",
     dependencies: ["clients"],
     partOf: "business-os",
     isCore: true,
@@ -564,11 +612,12 @@ export const APPS: App[] = [
     icon: "📄",
     category: "business-os",
     route: "/invoices",
+    buildType: "integration",
     dependencies: ["orders"],
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -580,11 +629,12 @@ export const APPS: App[] = [
     icon: "🌐",
     category: "business-os",
     route: "/portal",
+    buildType: "native",
     dependencies: ["clients"],
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -596,11 +646,12 @@ export const APPS: App[] = [
     icon: "📊",
     category: "business-os",
     route: "/analytics",
+    buildType: "native",
     dependencies: ["clients"],
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
   {
@@ -612,11 +663,12 @@ export const APPS: App[] = [
     icon: "🎨",
     category: "business-os",
     route: "/branding",
+    buildType: "native",
     dependencies: ["clients"],
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
 
@@ -633,11 +685,12 @@ export const APPS: App[] = [
     icon: "🔄",
     category: "integrations",
     route: "/settings/integrations/odoo",
+    buildType: "integration",
     dependencies: ["clients"],
     partOf: "business-os",
     isCore: false,
     isStandalone: false,
-    isImplemented: false, // Coming Soon
+    isImplemented: false,
     requiredRole: "OWNER",
   },
 ];
@@ -757,6 +810,14 @@ export function canUninstallApp(
     };
   }
 
+  // Always-enabled apps cannot be uninstalled (D10)
+  if (app?.alwaysEnabled) {
+    return {
+      can: false,
+      reason: "This app cannot be disabled"
+    };
+  }
+
   // Check if any other installed app depends on this one
   const dependents = getDependentApps(appId);
   const activeDependents = dependents.filter(a =>
@@ -786,8 +847,6 @@ export function getNavItems(
 
     // Core apps - check if package is installed
     if (app.isCore) {
-      // For now, assume core apps are always available
-      // In the future, check if package is installed
       return true;
     }
 

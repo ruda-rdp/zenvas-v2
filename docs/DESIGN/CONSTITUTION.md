@@ -1,6 +1,6 @@
 # CONSTITUTION.md
 
-**Status:** Updated v1.2 (Rule #10 revision: asset storage; cross-reference fixes)
+**Status:** Updated v1.3 (Rule #10 revision: integrate-first, native-when-matters)
 
 Purpose: Rules that cannot be broken — by any feature, any deadline
 pressure, any agent (human or AI) working on Zenvas. Unlike
@@ -126,24 +126,29 @@ routing enforces this architecturally)
 
 ---
 
-# 10. Zenvas Does Not Rebuild What Already Works Well
+# 10. Integrate First, Build Native When It Matters
 
-Zenvas does not build its own CRM, Invoicing, Accounting (delegated to
-Odoo, per ADR-0001), nor its own script breakdown, stripboard, shot list,
-storyboarding, or frame-accurate video review tooling. These are mature,
-well-served categories per REFERENCES.md.
+Zenvas prioritizes integrating mature, API-accessible third-party tools over
+rebuilding solved problems (e.g., Accounting/Invoicing → Odoo).
 
-**Asset Storage (updated):** Zenvas MAY manage its own object storage
-(S3/R2/Cloudinary-compatible) OR use links/references to Dropbox/Google
-Drive — owner's choice per integration. What Zenvas must NOT do is build
-its own DAM (Digital Asset Management) product: no in-house file
-browser/organizer competing with Dropbox/Drive, no encoding/transcoding
-pipeline, no version history UI. Object storage is infrastructure, not
-a product surface.
+But for the core filmmaking toolchain — Scriptwriter, Storyboard, Shot List,
+and other tools where no adequate integrable alternative exists — Zenvas
+builds natively, deep, and ambitiously.
 
-Building these natively is scope creep, not ambition.
+This is not an exception to "don't rebuild what works" — filmmaking-specific
+tooling is Zenvas's fundamental differentiator, not a commodity category to
+delegate away.
 
-→ FOUNDATION.md ("What Zenvas Is Not"), ADR-0001, REFERENCES.md (Synthesis)
+What Zenvas still avoids building:
+- A general-purpose DAM (competing with Dropbox/Drive)
+- A general accounting engine (competing with Odoo)
+- Any category where a mature external solution is genuinely integrable via API
+
+**Asset Storage:** Zenvas MAY manage its own object storage (S3/R2/Cloudinary-compatible)
+OR use links/references to Dropbox/Google Drive. What Zenvas must NOT do is build
+its own DAM product.
+
+→ FOUNDATION.md ("What Zenvas Is Not"), ADR-0001, REFERENCES.md, APP_REGISTRY.md
 
 ---
 

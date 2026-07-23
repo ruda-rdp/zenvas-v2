@@ -1,9 +1,13 @@
 /**
  * Package Registry - Zenvas Modular Architecture
  *
- * Packages bundle related apps together. When a package is installed,
- * all core apps are automatically installed. Optional apps can be
- * selected/deselected by the user.
+ * Packages are CURATED BUNDLES (shortcuts) — not a prerequisite layer.
+ * They let users install multiple related apps with one click.
+ * Individual apps can also be installed/uninstalled independently.
+ *
+ * Key distinction (D12):
+ * - Packages = UI convenience (curated bundle shortcuts)
+ * - Dependencies = technical requirements (auto-install when App X is installed)
  *
  * Based on ADR-0005: Modular Architecture
  */
