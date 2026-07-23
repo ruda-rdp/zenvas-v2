@@ -4,6 +4,7 @@ import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
+import TasksManagerView from "@/components/tasks/TasksManagerView";
 import ChatWidget from "@/components/chat/ChatWidget";
 
 // Dynamic import for GanttChart to avoid SSR issues
@@ -80,7 +81,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "preproduction" | "production" | "delivery">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "preproduction" | "production" | "delivery">("overview");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -177,14 +178,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     let completed = 0;
 
     function countTask(task: Task) {
+      const children = task.children || [];
       // Only count leaf tasks (tasks without children that are subtasks themselves)
       // For root tasks with children, count the children instead
-      if (task.children.length === 0) {
+      if ((task.children || []).length === 0) {
         total++;
         if (task.status === "COMPLETE") completed++;
       } else {
         // For parent tasks, count all leaf descendants
-        task.children.forEach(countTask);
+        children.forEach(countTask);
       }
     }
 
@@ -311,6 +313,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             📊 Overview
           </button>
           <button
+            onClick={() => setActiveTab("tasks")}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === "tasks" ? "border-red-600 text-red-600 bg-red-50 dark:bg-red-900/20" : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+          >
+            ✅ Tasks
+          </button>
+          <button
             onClick={() => setActiveTab("preproduction")}
             className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
               activeTab === "preproduction"
@@ -347,6 +355,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {activeTab === "overview" ? (
         /* Overview Dashboard */
         <ProjectOverviewDashboard project={project} />
+      ) : activeTab === "tasks" ? (
+        <TasksManagerView project={project} canManage={canManage} />
       ) : activeTab === "preproduction" ? (
         /* Pre-Production - Tasks + Apps */
         <ProductionStageView
@@ -542,8 +552,8 @@ function TaskCard({
               </span>
             </div>
           ))}
-          {task.children.length > 3 && (
-            <div className="text-xs text-gray-400">+{task.children.length - 3} more</div>
+          {(task.children || []).length > 3 && (
+            <div className="text-xs text-gray-400">+{(task.children || []).length - 3} more</div>
           )}
         </div>
       )}
@@ -624,11 +634,11 @@ function TaskDetailsModal({
               )}
             </div>
             
-            {task.children.length > 0 && (
+            {(task.children || []).length > 0 && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-sm text-gray-500 dark:text-gray-400">
-                    Subtasks ({task.children.length})
+                    Subtasks ({(task.children || []).length})
                   </label>
                   {canManage && (
                     <button
@@ -640,7 +650,7 @@ function TaskDetailsModal({
                   )}
                 </div>
                 <div className="space-y-2">
-                  {task.children.map((child) => (
+                  {(task.children || []).map((child) => (
                     <div key={child.id} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-2">
                       <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
                         child.status === "COMPLETE" 
@@ -670,7 +680,7 @@ function TaskDetailsModal({
               Assign
             </button>
           )}
-          {canManage && task.children.length === 0 && (
+          {canManage && (task.children || []).length === 0 && (
             <button
               onClick={onAddSubtask}
               className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
