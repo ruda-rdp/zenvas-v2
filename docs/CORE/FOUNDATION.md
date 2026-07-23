@@ -126,45 +126,47 @@ These modules are the foundation — cannot be uninstalled.
 - Activity Log (global)
 
 ### BUSINESS OS Modules
-- CRM & Clients ✓ (Phase 1)
-- Invoicing ✓ (Phase 1 — Odoo integration)
-- Team & Payroll ✓ (Phase 1)
-- Marketing Automation (Phase 3+)
-- Social Media (Phase 3+)
-- Email Campaigns (Phase 3+)
-- Analytics & Reports (Phase 2+)
+All Business OS modules are **optional and installable anytime** — not gated to any phase.
+- CRM & Clients
+- Invoicing (with Odoo integration)
+- Team & Payroll
+- Marketing Automation
+- Social Media
+- Email Campaigns
+- Analytics & Reports
 
 ### PROJECT OS Modules
-- Tasks ✓ (Phase 1 — core)
-- Delivery ✓ (Phase 1 — basic)
-- Script Writer (Phase 2) — can grow to standalone
-- Storyboard Canvas (Phase 2) — can grow to standalone
-- Free-Form Canvas (Phase 3) — MILANOTE killer, can grow
-- Shot List (Phase 2)
-- Scheduling & Call Sheets (Phase 2)
-- Creative Departments (Phase 3)
-- Crew Management (Phase 4)
+Core modules (always available):
+- Tasks ✓
+- Delivery ✓
+- Script Writer — can grow to standalone
+- Storyboard Canvas — can grow to standalone
+- Free-Form Canvas — can grow to standalone
+- Shot List
+- Scheduling & Call Sheets
+- Creative Departments
+- Crew Management
 
 ### AI CONTENT OS Modules
-- Content Series (Phase 3) — internal media production
-- Character Library (Phase 3) — AI character asset management
-- AI Asset Library (Phase 3) — backgrounds, props, LoRA models
-- AI Pipeline Config (Phase 3) — tool configuration & cost tracking
-- Performance Analytics (Phase 3) — views, engagement, retention
+- Content Series — internal media production
+- Character Library — AI character asset management
+- AI Asset Library — backgrounds, props, LoRA models
+- AI Pipeline Config — tool configuration & cost tracking
+- Performance Analytics — views, engagement, retention
 
 ### COLLABORATION Modules
-- Chat/Discuss ✓ (Phase 1 — built into Project OS)
-- Activity Log ✓ (Phase 1)
-- Video Calls (Phase 2)
-- AI Summary (Phase 2)
-- File Sharing (Phase 2)
+- Chat/Discuss ✓ (built into Project OS)
+- Activity Log ✓
+- Video Calls
+- AI Summary
+- File Sharing
 
 ### INTEGRATIONS
-- Odoo ✓ (Phase 1)
-- Google Drive ✓ (Phase 1)
-- Frame.io (Phase 2)
-- Vimeo/YouTube (Phase 2)
-- Google Calendar (Phase 2)
+- Odoo ✓
+- Google Drive ✓
+- Frame.io
+- Vimeo/YouTube
+- Google Calendar
 
 ## DaVinci Resolve Analogy
 
@@ -299,18 +301,18 @@ Zenvas is designed to scale operations while preserving clarity.
 
 # Long-Term Vision
 
-**Stage 1 (Now): Single Organization, Multi-Brand.**
-One organization operates many independent Brands on top of one shared
-operational backbone. See CONTEXT.md for the current, concrete state of this
-stage.
+**Multi-Organization / Multi-Tenant is the current reality.**
+Multiple independent organizations (e.g., Jacob Org, Dewa's Studio, EatPrayEdit)
+run their creative businesses on Zenvas, fully isolated from one another.
+This is not a future plan — it's already live. See CONTEXT.md for concrete
+examples of how multiple organizations coexist on the platform.
 
-**Stage 2 (Future): Multi-Organization / Multi-Tenant.**
-Other organizations run their own creative businesses on Zenvas, fully
-isolated from one another. Zenvas becomes a SaaS platform powering many
-independent creative agencies.
+**Single Organization, Multi-Brand** is one possible configuration within this
+model: one organization operating many independent Brands on one shared
+operational backbone.
 
-The data architecture is designed for Stage 2 from the start. The feature
-scope is deliberately frozen at Stage 1 until it is solved well.
+The data architecture supports multi-tenancy from the start. Organizations
+remain isolated while sharing the same infrastructure when appropriate.
 
 ---
 

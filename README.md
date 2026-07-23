@@ -20,22 +20,14 @@ Modular apps that can be activated/deactivated without breaking the core.
 
 ## 📚 Documentation
 
-Start by reading in this order:
+For complete reading order and document descriptions, see [`docs/README.md`](docs/README.md).
 
-1. **`docs/PHILOSOPHY.md`** — What we believe
-2. **`docs/FOUNDATION.md`** — What Zenvas is
-3. **`docs/CONTEXT.md`** — Current operating reality (Ruda org, EPE, Balistory, etc.)
-4. **`docs/CONSTITUTION.md`** — Rules that cannot be broken
-5. **`docs/PRODUCT_PRINCIPLES.md`** — How product decisions are made
-6. **`docs/BUSINESS_OS.md`** — Brand, Service, Order, Client (inbound flow)
-7. **`docs/PROJECT_OS.md`** — Service Template, Stage, Task, Delivery
-8. **`docs/HUMAN_CAPITAL_OS.md`** — User, Role, Payout, Board
-9. **`docs/KNOWLEDGE_ENGINE.md`** — SOP, Templates, Resource Library
-10. **`docs/UX_MODES.md`** — Business / Project / Focus Mode, how the interface behaves
-11. **`docs/MVP_ROADMAP.md`** — Phase 1 scope (EPE Studio operations)
-12. **`docs/GLOSSARY.md`** — Terminology
-13. **`docs/REFERENCES.md`** — Competitor/inspiration research (Odoo, Wayfront, Zendo, StudioBinder, Contentmaker, etc.)
-14. **`docs/ADR/`** — Architecture Decision Records
+Quick reference:
+- [`docs/CORE/PHILOSOPHY.md`](docs/CORE/PHILOSOPHY.md) — What we believe
+- [`docs/CORE/FOUNDATION.md`](docs/CORE/FOUNDATION.md) — What Zenvas is
+- [`docs/CORE/CONTEXT.md`](docs/CORE/CONTEXT.md) — Current operating reality
+- [`docs/DESIGN/CONSTITUTION.md`](docs/DESIGN/CONSTITUTION.md) — Rules that cannot be broken
+- [`docs/ADR/`](docs/ADR/) — Architecture Decision Records
 
 ---
 
@@ -66,7 +58,7 @@ ZENVAS-V2/
 
 ## 🚀 Status
 
-**Phase:** Planning complete — ready for implementation kickoff
+**Phase:** Phase 1 Core in progress — see [`docs/PROCESS/CHECKPOINT.md`](docs/PROCESS/CHECKPOINT.md) for current state.
 
 **Current focus:**
 - [x] Foundation documents locked
@@ -76,7 +68,7 @@ ZENVAS-V2/
 - [x] API Contracts
 - [x] UI Mockups (4 critical screens)
 - [x] Implementation Plan (file structure + build order)
-- [ ] Implementation kickoff (Phase A: Foundation, per IMPLEMENTATION-PLAN.md)
+- [x] Implementation kickoff (Phase A: Foundation, per IMPLEMENTATION-PLAN.md)
 
 ---
 

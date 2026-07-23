@@ -392,7 +392,7 @@ enum Role {
   OWNER
   MANAGER
   EDITOR
-  PRODUCER  // Phase 2+
+  PRODUCER // Active now (D5)
 }
 
 // Invite codes for team member registration

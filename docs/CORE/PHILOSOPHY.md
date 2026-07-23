@@ -8,25 +8,11 @@ From a solo creator editing their first project to a production house managing c
 
 ---
 
-## Phase-Based Philosophy
+## The Zenvas Growth Journey
 
-**Phase 1: Solo Creator** — You work alone. You need project management.
-**Phase 2: Project OS** — Add filmmaker tools. Script, storyboard, production planning.
-**Phase 3: Business OS** — Add clients, orders, invoicing when you're ready.
+Zenvas supports your growth from solo creator to full agency. See [CONTEXT.md](../CORE/CONTEXT.md) for the canonical explanation of how Zenvas adapts to your growth journey — from solo mode to growing studio to agency, with optional Business OS features you can activate anytime.
 
-> You never need Phase 3 to use Zenvas. Phase 1 is complete on its own.
-
-## The Zenvas Spectrum
-
-```
-Solo Creator          Growing Studio        Professional Agency      Enterprise
-─────────────────    ─────────────────    ──────────────────────    ────────────
-Micro Project         Team Project          Commercial Project        Feature Film
-├── Simple cuts       ├── Script            ├── Client order         ├── Multiple brands
-├── Personal brand    ├── Storyboard        ├── Contracts             ├── International team
-├── Self-managed      ├── Team invited      ├── Invoicing             ├── Global workflow
-└── Budget tracking   └── Milestones        └── Deliverables          └── Studio management
-```
+For implementation details on how modes and feature flags work, see CONTEXT.md's "Three Modes of Operation" and "Feature Flags: Three Levels" sections.
 
 ## Brand-First Architecture
 
@@ -39,61 +25,6 @@ Brand (YouTube channel, Production House, Personal Identity)
     │   └── Tasks (Individual work items)
     └── Team Members (When you grow)
 ```
-
-## Natural Evolution
-
-### Year 1: Solo Creator
-```
-Register → Create Brand → Start Project
-```
-- 1 brand (personal vlog channel)
-- Manage own projects
-- Simple workflow
-
-### Year 2: Growing Audience
-```
-Invite Team → Share Work
-```
-- Add editors, assistants
-- Collaborate on projects
-- Basic task assignment
-
-### Year 3: Commercial Work Begins
-```
-Add Clients → Manage Orders
-```
-- External clients start asking
-- Manage deliverables
-- Basic client portal
-
-### Year 4-5: Multiple Ventures
-```
-Multiple Brands → Production House
-```
-- YouTube channel brand
-- Review product brand  
-- Travel vlog brand
-- Client production brand
-
-### Year 5+: Full Studio
-```
-Enterprise → Multi-Brand Management
-```
-- Multiple teams
-- International collaborators
-- Complex workflows
-- Feature film production
-
-## No Forced Complexity
-
-**You only use what you need.**
-
-| Phase | Features Used | Complexity |
-|-------|-------------|------------|
-| Solo | Brand, Projects, Tasks | Minimal |
-| Team | + Team Management | Basic |
-| Client | + Clients, Orders | Medium |
-| Enterprise | + All features | Full |
 
 ## Design Principles
 

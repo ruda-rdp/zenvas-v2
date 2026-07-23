@@ -274,14 +274,15 @@ Brand "Dewa Collaboration":
 
 ---
 
-## Technology Stack
+## Hard Rules
 
-- **Frontend**: Next.js 14 (App Router)
-- **Database**: PostgreSQL (Neon)
-- **ORM**: Prisma
-- **Styling**: Tailwind CSS
-- **Auth**: NextAuth.js
-- **Deployment**: Vercel (planned)
+The Zenvas Constitution defines non-negotiable rules governing financial confidentiality,
+client relationship ownership, and operational boundaries. Key sources:
+
+- **Rule #1 (Financial Confidentiality)**: Defined in CONSTITUTION.md → enforced by
+  BUSINESS_OS.md (Order/Invoice visibility) and HUMAN_CAPITAL_OS.md (Roles & Permissions)
+- **Rule #2 (Client Relationship Ownership)**: Defined in CONSTITUTION.md → enforced by
+  HUMAN_CAPITAL_OS.md (Roles & Permissions)
 
 ---
 

@@ -1,6 +1,6 @@
 # CONSTITUTION.md
 
-**Status:** Updated v1.1 (Reflects ADR-0005 Modular Architecture)
+**Status:** Updated v1.2 (Rule #10 revision: asset storage; cross-reference fixes)
 
 Purpose: Rules that cannot be broken — by any feature, any deadline
 pressure, any agent (human or AI) working on Zenvas. Unlike
@@ -24,7 +24,7 @@ calculation.
 **Enforcement:** access-control level (queries must be structurally unable
 to return this data to unauthorized roles), never a UI-only convention.
 
-→ CONTEXT.md, BUSINESS_OS.md, HUMAN_CAPITAL_OS.md (Roles & Permissions)
+→ BUSINESS_OS.md, HUMAN_CAPITAL_OS.md (Roles & Permissions)
 
 ---
 
@@ -38,7 +38,7 @@ directly, under any circumstance. Only Owner, Manager, and Producer may.
 sustainability against client-poaching of individual editors — this is a
 business continuity rule, not a courtesy.
 
-→ CONTEXT.md, HUMAN_CAPITAL_OS.md (Roles & Permissions)
+→ HUMAN_CAPITAL_OS.md (Roles & Permissions)
 
 ---
 
@@ -130,11 +130,18 @@ routing enforces this architecturally)
 
 Zenvas does not build its own CRM, Invoicing, Accounting (delegated to
 Odoo, per ADR-0001), nor its own script breakdown, stripboard, shot list,
-storyboarding, frame-accurate video review tooling, or raw file/DAM storage
-(Assets are links/references to Dropbox, Google Drive, or local server —
-never raw files managed by Zenvas itself). These are mature, well-served
-categories per REFERENCES.md. Building these natively is scope creep, not
-ambition.
+storyboarding, or frame-accurate video review tooling. These are mature,
+well-served categories per REFERENCES.md.
+
+**Asset Storage (updated):** Zenvas MAY manage its own object storage
+(S3/R2/Cloudinary-compatible) OR use links/references to Dropbox/Google
+Drive — owner's choice per integration. What Zenvas must NOT do is build
+its own DAM (Digital Asset Management) product: no in-house file
+browser/organizer competing with Dropbox/Drive, no encoding/transcoding
+pipeline, no version history UI. Object storage is infrastructure, not
+a product surface.
+
+Building these natively is scope creep, not ambition.
 
 → FOUNDATION.md ("What Zenvas Is Not"), ADR-0001, REFERENCES.md (Synthesis)
 

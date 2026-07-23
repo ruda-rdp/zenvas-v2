@@ -1,7 +1,7 @@
 # Zenvas v2 - Development Checkpoint
 
-**Last Updated:** 2026-07-21
-**Last Commit:** `db2d785` - docs: Update philosophy - brand-first architecture
+**Last Updated:** 2026-07-23
+**Last Commit:** `4cf49d0` - (see git log)
 **Branch:** main
 
 ---
@@ -40,6 +40,7 @@
 | **Order Management** | ✅ | Full lifecycle + Odoo sync |
 | **Project Management** | ✅ | CRUD + Solo mode |
 | **Task Management** | ✅ | Get/Update/Apply/Assign/Complete |
+| **Client Portal / Domain Routing** | ⏳ | ADR-0003 defined, not wired — planned next (D2) |
 | **Payout & Wallet** | ✅ | Full payout system |
 | **Editor Board** | ✅ | Task board for editors |
 

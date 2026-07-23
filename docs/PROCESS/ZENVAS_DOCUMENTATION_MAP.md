@@ -232,9 +232,9 @@ Never contains:
 
 Rules that cannot be broken.
 
-10 compressed hard rules, each pointing back to where it was actually
-decided (CONTEXT.md, BUSINESS_OS.md, HUMAN_CAPITAL_OS.md,
-KNOWLEDGE_ENGINE.md, FOUNDATION.md, ADR-0001, ADR-0003). Used the same way
+11 compressed hard rules, each pointing back to where it was actually
+decided (BUSINESS_OS.md, HUMAN_CAPITAL_OS.md, KNOWLEDGE_ENGINE.md,
+FOUNDATION.md, ADR-0001, ADR-0003, ADR-0005). Used the same way
 as PRODUCT_PRINCIPLES.md's Decision Checklist, except failing a check here
 means stop, not reconsider.
 
@@ -254,9 +254,13 @@ Architecture Decision Records.
 
 Documents significant technical decisions.
 
-Current: ADR-0001 (Odoo integration), ADR-0002 (Tech Stack), ADR-0003
-(Domain Routing). Candidate ADR-0004: video review tool integration (see
-REFERENCES.md → Synthesis).
+Current ADRs:
+- ADR-0001: Odoo integration
+- ADR-0002: Tech Stack (Next.js, Prisma, PostgreSQL)
+- ADR-0003: Domain Routing (per-Brand Client Portal) — **defined, implementation deferred (D2)**
+- ADR-0004: Payment Gateway
+- ADR-0005: Modular Architecture
+- PLATFORM_ADMIN.md: Platform-level admin role
 
 ---
 
