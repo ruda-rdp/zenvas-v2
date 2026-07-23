@@ -2,36 +2,16 @@
 
 import { useState } from "react";
 import SpreadsheetView from "./SpreadsheetView";
-
-interface Task {
-  id: string;
-  parentTaskId: string | null;
-  name: string;
-  status: string;
-  category: string | null;
-  priority: string;
-  assigneeUserId: string | null;
-  payoutAmount: string | null;
-  expectedDurationMinutes: number;
-  isFromTemplate: boolean;
-  startDate: string | null;
-  dueDate: string | null;
-  description: string | null;
-  tags: string[];
-  assignee: { id: string; name: string } | null;
-  children: Task[];
-}
+import type { Task, TaskAssignee, ViewType } from "@/types/task";
 
 interface TaskManagerProps {
   tasks: Task[];
-  users: Array<{ id: string; name: string }>;
+  users: TaskAssignee[];
   projectId: string;
   onRefresh: () => void;
   canManage: boolean;
-  isEditor: boolean;
+  isEditor?: boolean;
 }
-
-type ViewType = "spreadsheet" | "board" | "gantt" | "calendar";
 
 export default function TaskManager({
   tasks,
@@ -39,7 +19,6 @@ export default function TaskManager({
   projectId,
   onRefresh,
   canManage,
-  isEditor,
 }: TaskManagerProps) {
   const [view, setView] = useState<ViewType>("spreadsheet");
   const [search, setSearch] = useState("");
@@ -61,27 +40,32 @@ export default function TaskManager({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Tasks ({filteredTasks.length})
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          Tasks
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            ({filteredTasks.length})
+          </span>
         </h2>
         <div className="flex items-center gap-2">
           {/* View Switcher */}
           <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             {[
-              { key: "spreadsheet", icon: "📊", label: "Spreadsheet" },
-              { key: "board", icon: "📋", label: "Board" },
-              { key: "gantt", icon: "📈", label: "Timeline" },
-              { key: "calendar", icon: "📅", label: "Calendar" },
+              { key: "spreadsheet", label: "Spreadsheet" },
+              { key: "board", label: "Board" },
+              { key: "gantt", label: "Timeline" },
+              { key: "calendar", label: "Calendar" },
             ].map((v) => (
               <button
                 key={v.key}
                 onClick={() => setView(v.key as ViewType)}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                  view === v.key ? "bg-white dark:bg-gray-700 shadow" : ""
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150 ${
+                  view === v.key
+                    ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
                 title={v.label}
               >
-                {v.icon}
+                {v.label}
               </button>
             ))}
           </div>

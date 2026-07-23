@@ -1,25 +1,11 @@
 "use client";
 
 import { useState } from "react";
-
-interface Task {
-  id: string;
-  parentTaskId: string | null;
-  name: string;
-  status: string;
-  priority: string;
-  assigneeUserId: string | null;
-  assignee: { id: string; name: string } | null;
-  dueDate: string | null;
-  startDate: string | null;
-  description: string | null;
-  expectedDurationMinutes: number;
-  children: Task[];
-}
+import type { Task, TaskAssignee } from "@/types/task";
 
 interface TaskDetailPanelProps {
   task: Task;
-  users: Array<{ id: string; name: string }>;
+  users: TaskAssignee[];
   onClose: () => void;
   onRefresh: () => void;
   canManage: boolean;
@@ -34,8 +20,8 @@ export default function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const [name, setName] = useState(task.name);
   const [description, setDescription] = useState(task.description || "");
-  const [status, setStatus] = useState(task.status);
-  const [priority, setPriority] = useState(task.priority);
+  const [status, setStatus] = useState<string>(task.status);
+  const [priority, setPriority] = useState<string>(task.priority);
   const [assigneeId, setAssigneeId] = useState(task.assigneeUserId || "");
   const [dueDate, setDueDate] = useState(task.dueDate?.split("T")[0] || "");
   const [startDate, setStartDate] = useState(task.startDate?.split("T")[0] || "");

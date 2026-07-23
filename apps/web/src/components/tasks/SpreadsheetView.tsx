@@ -1,30 +1,344 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import type { Task, TaskAssignee, TaskStatus, TaskPriority } from "@/types/task";
+import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
 import TaskDetailPanel from "./TaskDetailPanel";
 
-interface Task {
-  id: string;
-  parentTaskId: string | null;
-  name: string;
-  status: string;
-  priority: string;
-  assigneeUserId: string | null;
-  assignee: { id: string; name: string } | null;
-  dueDate: string | null;
-  startDate: string | null;
-  description: string | null;
-  expectedDurationMinutes: number;
-  children: Task[];
-}
+// ============================================
+// Premium Task Table - Monday.com/ClickUp Style
+// ============================================
 
 interface SpreadsheetViewProps {
   tasks: Task[];
-  users: Array<{ id: string; name: string }>;
+  users: TaskAssignee[];
   projectId: string;
   onRefresh: () => void;
   canManage: boolean;
 }
+
+// ============================================
+// Column Configuration
+// ============================================
+
+interface Column {
+  id: string;
+  label: string;
+  width: number;
+  minWidth: number;
+  editable: boolean;
+  type: "text" | "status" | "priority" | "assignee" | "date" | "number" | "checkbox" | "actions";
+  align: "left" | "center" | "right";
+}
+
+const DEFAULT_COLUMNS: Column[] = [
+  { id: "checkbox", label: "", width: 44, minWidth: 44, editable: false, type: "checkbox", align: "center" },
+  { id: "name", label: "Task Name", width: 350, minWidth: 200, editable: true, type: "text", align: "left" },
+  { id: "status", label: "Status", width: 140, minWidth: 120, editable: true, type: "status", align: "left" },
+  { id: "priority", label: "Priority", width: 110, minWidth: 90, editable: true, type: "priority", align: "left" },
+  { id: "assignee", label: "Assignee", width: 160, minWidth: 120, editable: true, type: "assignee", align: "left" },
+  { id: "startDate", label: "Start", width: 110, minWidth: 100, editable: true, type: "date", align: "left" },
+  { id: "dueDate", label: "Due", width: 110, minWidth: 100, editable: true, type: "date", align: "left" },
+  { id: "duration", label: "Dur", width: 60, minWidth: 50, editable: false, type: "number", align: "center" },
+  { id: "subtasks", label: "Sub", width: 60, minWidth: 50, editable: false, type: "number", align: "center" },
+  { id: "actions", label: "", width: 60, minWidth: 60, editable: false, type: "actions", align: "center" },
+];
+
+// ============================================
+// Helper Functions
+// ============================================
+
+// Format date for display
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// Calculate duration between dates
+function getDuration(start: string | null, end: string | null): string {
+  if (!start || !end) return "-";
+  try {
+    const s = new Date(start);
+    const e = new Date(end);
+    const days = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+    if (days < 1) return "<1d";
+    if (days === 1) return "1d";
+    if (days < 7) return days + "d";
+    if (days < 30) return Math.floor(days / 7) + "w";
+    return Math.floor(days / 30) + "mo";
+  } catch {
+    return "-";
+  }
+}
+
+// Get subtask count
+function getSubtaskCount(children: Task[]): { completed: number; total: number } {
+  if (!children || children.length === 0) return { completed: 0, total: 0 };
+  const completed = children.filter(c => c.status === "COMPLETE").length;
+  return { completed, total: children.length };
+}
+
+// Flatten tasks with depth
+interface FlattenedTask {
+  task: Task;
+  depth: number;
+  isExpanded: boolean;
+  hasChildren: boolean;
+  parentId: string | null;
+}
+
+function flattenTasks(
+  tasks: Task[],
+  expandedIds: Set<string>,
+  depth: number = 0,
+  parentId: string | null = null
+): FlattenedTask[] {
+  const result: FlattenedTask[] = [];
+  for (const task of tasks) {
+    const hasChildren = task.children && task.children.length > 0;
+    result.push({ task, depth, isExpanded: expandedIds.has(task.id), hasChildren, parentId });
+    if (hasChildren && expandedIds.has(task.id)) {
+      result.push(...flattenTasks(task.children, expandedIds, depth + 1, task.id));
+    }
+  }
+  return result;
+}
+
+// ============================================
+// Icons
+// ============================================
+
+const ChevronRight = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9 18l6-6-6-6" />
+  </svg>
+);
+
+const ChevronDown = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
+
+const Plus = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+
+const Check = ({ className = "w-3 h-3" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const Search = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="11" cy="11" r="8" />
+    <path d="M21 21l-4.35-4.35" />
+  </svg>
+);
+
+const X = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
+
+const GripVertical = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="9" cy="6" r="1.5" fill="currentColor" />
+    <circle cx="15" cy="6" r="1.5" fill="currentColor" />
+    <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="9" cy="18" r="1.5" fill="currentColor" />
+    <circle cx="15" cy="18" r="1.5" fill="currentColor" />
+  </svg>
+);
+
+
+// ============================================
+// Inline Edit Components - Monday.com Style
+// ============================================
+
+interface InlineEditProps {
+  value: string;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+  autoFocus?: boolean;
+  className?: string;
+}
+
+function InlineTextEdit({ value, onSave, onCancel, autoFocus = true }: InlineEditProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [value, autoFocus]);
+
+  const handleBlur = () => {
+    onSave(localValue.trim() || value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setLocalValue(value);
+      onCancel();
+    }
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className="w-full h-7 px-2 text-sm bg-white dark:bg-gray-800 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+}
+
+interface InlineSelectProps {
+  value: string;
+  options: { value: string; label: string }[];
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}
+
+function InlineSelect({ value, options, onSave, onCancel }: InlineSelectProps) {
+  const selectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (selectRef.current) {
+      selectRef.current.focus();
+    }
+  }, [value]);
+
+  const handleBlur = () => {
+    onSave(selectRef.current?.value || value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
+  return (
+    <select
+      ref={selectRef}
+      defaultValue={value}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      onChange={(e) => onSave(e.target.value)}
+      className="w-full h-7 px-1 text-sm bg-white dark:bg-gray-800 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+}
+
+interface InlineDateEditProps {
+  value: string | null;
+  onSave: (value: string | null) => void;
+  onCancel: () => void;
+}
+
+function InlineDateEdit({ value, onSave, onCancel }: InlineDateEditProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.showPicker?.();
+      inputRef.current.focus();
+    }
+  }, []);
+
+  const dateValue = value ? value.split("T")[0] : "";
+
+  const handleBlur = () => {
+    const val = inputRef.current?.value;
+    onSave(val || null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="date"
+      defaultValue={dateValue}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className="w-full h-7 px-2 text-xs bg-white dark:bg-gray-800 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+}
+
+interface StatusBadgeProps {
+  status: TaskStatus;
+  onClick?: () => void;
+}
+
+function StatusBadge({ status, onClick }: StatusBadgeProps) {
+  const config = STATUS_CONFIG[status];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${config.bgColor} ${config.textColor} ${onClick ? "hover:scale-105 cursor-pointer" : "cursor-default"}`}
+    >
+      {config.label}
+    </button>
+  );
+}
+
+interface PriorityBadgeProps {
+  priority: TaskPriority;
+  onClick?: () => void;
+}
+
+function PriorityBadge({ priority, onClick }: PriorityBadgeProps) {
+  const config = PRIORITY_CONFIG[priority];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1.5 transition-all ${config.bgColor} ${config.textColor} ${onClick ? "hover:scale-105 cursor-pointer" : "cursor-default"}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
+      {config.label}
+    </button>
+  );
+}
+
+
+// ============================================
+// Main SpreadsheetView Component
+// ============================================
 
 export default function SpreadsheetView({
   tasks,
@@ -33,326 +347,623 @@ export default function SpreadsheetView({
   onRefresh,
   canManage,
 }: SpreadsheetViewProps) {
+  // ============================================
+  // State
+  // ============================================
+
+  const [columns, setColumns] = useState<Column[]>(DEFAULT_COLUMNS);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [editingCell, setEditingCell] = useState<{ taskId: string; colId: string; value: string } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ taskId: string; columnId: string } | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
   const [addingSubtask, setAddingSubtask] = useState<string | null>(null);
   const [newSubtaskName, setNewSubtaskName] = useState("");
-  const [timelineEdit, setTimelineEdit] = useState<{ taskId: string; start: string; end: string } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "ALL">("ALL");
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
 
-  // Toggle expand
-  const toggleExpand = (taskId: string) => {
-    setExpandedTasks((prev) => {
+  // Refs
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ============================================
+  // Computed Values
+  // ============================================
+
+  const flattenedTasks = useMemo(() => flattenTasks(tasks, expandedTasks), [tasks, expandedTasks]);
+
+  const filteredTasks = useMemo(() => {
+    return flattenedTasks.filter((ft) => {
+      if (searchQuery && !ft.task.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (statusFilter !== "ALL" && ft.task.status !== statusFilter) return false;
+      return true;
+    });
+  }, [flattenedTasks, searchQuery, statusFilter]);
+
+  // ============================================
+  // Column Resizing
+  // ============================================
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, columnId: string, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizingCol(columnId);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth(currentWidth);
+  }, []);
+
+  useEffect(() => {
+    if (!resizingCol) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const diff = e.clientX - resizeStartX;
+      const newWidth = Math.max(columns.find(c => c.id === resizingCol)?.minWidth || 50, resizeStartWidth + diff);
+      setColumns(prev => prev.map(col =>
+        col.id === resizingCol ? { ...col, width: newWidth } : col
+      ));
+    };
+
+    const handleMouseUp = () => {
+      setResizingCol(null);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizingCol, resizeStartX, resizeStartWidth, columns]);
+
+  // ============================================
+  // Actions
+  // ============================================
+
+  const toggleExpand = useCallback((taskId: string) => {
+    setExpandedTasks(prev => {
       const next = new Set(prev);
       if (next.has(taskId)) next.delete(taskId);
       else next.add(taskId);
       return next;
     });
-  };
+  }, []);
 
-  // Save edit
-  const saveEdit = async (taskId: string, colId: string, value: string) => {
-    const update: Record<string, unknown> = {};
-    if (colId === "name") update.name = value;
-    if (colId === "status") update.status = value;
-    if (colId === "priority") update.priority = value;
-    if (colId === "assignee") update.assigneeUserId = value || null;
-    
-    await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(update),
-    });
-    setEditingCell(null);
-    onRefresh();
-  };
+  const updateTask = useCallback(async (taskId: string, updates: Record<string, unknown>) => {
+    try {
+      await fetch("/api/tasks/" + taskId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
+  }, [onRefresh]);
 
-  // Toggle status
-  const toggleStatus = async (taskId: string, current: string) => {
-    const next = current === "OPEN" ? "IN_PROGRESS" : current === "IN_PROGRESS" ? "COMPLETE" : "OPEN";
-    await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    onRefresh();
-  };
+  const cycleStatus = useCallback(async (taskId: string, current: TaskStatus) => {
+    const next: TaskStatus = current === "OPEN" ? "IN_PROGRESS" : current === "IN_PROGRESS" ? "COMPLETE" : "OPEN";
+    await updateTask(taskId, { status: next });
+  }, [updateTask]);
 
-  // Cycle priority
-  const cyclePriority = async (taskId: string, current: string) => {
-    const next = current === "LOW" ? "MEDIUM" : current === "MEDIUM" ? "HIGH" : current === "HIGH" ? "URGENT" : "LOW";
-    await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ priority: next }),
-    });
-    onRefresh();
-  };
+  const cyclePriority = useCallback(async (taskId: string, current: TaskPriority) => {
+    const priorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+    const next = priorities[(priorities.indexOf(current) + 1) % priorities.length];
+    await updateTask(taskId, { priority: next });
+  }, [updateTask]);
 
-  // Save timeline
-  const saveTimeline = async () => {
-    if (!timelineEdit) return;
-    await fetch(`/api/tasks/${timelineEdit.taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate: timelineEdit.start || null, dueDate: timelineEdit.end || null }),
-    });
-    setTimelineEdit(null);
-    onRefresh();
-  };
-
-  // Add task
-  const addTask = async () => {
+  const addTask = useCallback(async () => {
     if (!newTaskName.trim()) return;
-    await fetch(`/api/projects/${projectId}/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newTaskName.trim() }),
-    });
-    setNewTaskName("");
-    setAddingTask(false);
-    onRefresh();
-  };
+    try {
+      await fetch("/api/projects/" + projectId + "/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTaskName.trim() }),
+      });
+      setNewTaskName("");
+      setAddingTask(false);
+      onRefresh();
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
+  }, [newTaskName, projectId, onRefresh]);
 
-  // Add subtask
-  const addSubtask = async (parentId: string) => {
+  const addSubtask = useCallback(async (parentId: string) => {
     if (!newSubtaskName.trim()) return;
-    await fetch(`/api/tasks/${parentId}/subtasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newSubtaskName.trim() }),
-    });
-    setNewSubtaskName("");
-    setAddingSubtask(null);
-    onRefresh();
-  };
+    try {
+      await fetch("/api/tasks/" + parentId + "/subtasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newSubtaskName.trim() }),
+      });
+      setNewSubtaskName("");
+      setAddingSubtask(null);
+      setExpandedTasks(prev => new Set([...prev, parentId]));
+      onRefresh();
+    } catch (error) {
+      console.error("Error adding subtask:", error);
+    }
+  }, [newSubtaskName, onRefresh]);
 
-  // Delete subtask
-  const deleteSubtask = async (subtaskId: string) => {
-    if (!confirm("Delete this subtask?")) return;
-    await fetch(`/api/tasks/${subtaskId}`, { method: "DELETE" });
-    onRefresh();
-  };
+  // ============================================
+  // Keyboard Shortcuts
+  // ============================================
 
-  // Get status info
-  const getStatus = (s: string) => {
-    if (s === "OPEN") return { text: "To Do", bg: "bg-gray-100 text-gray-600" };
-    if (s === "IN_PROGRESS") return { text: "In Progress", bg: "bg-blue-500 text-white" };
-    return { text: "Done", bg: "bg-green-500 text-white" };
-  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "/" && !editingCell && document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        if (editingCell) setEditingCell(null);
+        if (searchQuery) {
+          setSearchQuery("");
+          searchInputRef.current?.blur();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editingCell, searchQuery]);
 
-  // Get priority info
-  const getPriority = (p: string) => {
-    if (p === "LOW") return { text: "Low", bg: "bg-green-100 text-green-700", dot: "bg-green-500" };
-    if (p === "MEDIUM") return { text: "Medium", bg: "bg-yellow-100 text-yellow-700", dot: "bg-yellow-500" };
-    if (p === "HIGH") return { text: "High", bg: "bg-orange-100 text-orange-700", dot: "bg-orange-500" };
-    return { text: "Urgent", bg: "bg-red-100 text-red-700", dot: "bg-red-500" };
-  };
 
-  // Calculate duration
-  const getDuration = (start: string | null, end: string | null) => {
-    if (!start || !end) return null;
-    const s = new Date(start);
-    const e = new Date(end);
-    const days = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
-    if (days < 1) return "< 1 day";
-    if (days === 1) return "1 day";
-    if (days < 7) return `${days} days`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks`;
-    return `${Math.floor(days / 30)} months`;
-  };
+  // ============================================
+  // Render Cell Content
+  // ============================================
 
-  // Render row
-  const renderRow = (task: Task, depth: number = 0) => {
-    const children = task.children || [];
-    const isExpanded = expandedTasks.has(task.id);
-    const status = getStatus(task.status);
-    const priority = getPriority(task.priority);
-    const duration = getDuration(task.startDate, task.dueDate);
-    const indent = 8 + depth * 20;
+  const renderCell = (ft: FlattenedTask, column: Column) => {
+    const task = ft.task;
+    const isEditing = editingCell?.taskId === task.id && editingCell?.columnId === column.id;
+    const indentPadding = ft.depth * 20;
 
-    return (
-      <div key={task.id}>
-        {/* Row */}
-        <div className={`flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${depth > 0 ? "bg-gray-50/30 dark:bg-gray-900/30" : ""}`}>
-          {/* Expand */}
-          <div className="w-8 flex-shrink-0" style={{ paddingLeft: indent }}>
-            <button onClick={() => toggleExpand(task.id)} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600">
-              <span className={`text-[10px] transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+    // Checkbox
+    if (column.id === "checkbox") {
+      return (
+        <button
+          onClick={(e) => { e.stopPropagation(); cycleStatus(task.id, task.status); }}
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${task.status === "COMPLETE" ? STATUS_CONFIG[task.status].bgColor + " " + STATUS_CONFIG[task.status].textColor : "border-gray-300 dark:border-gray-500 hover:border-blue-400"}`}
+        >
+          {task.status === "COMPLETE" && <Check />}
+        </button>
+      );
+    }
+
+    // Task Name
+    if (column.id === "name") {
+      if (isEditing && canManage) {
+        return (
+          <InlineTextEdit
+            value={task.name}
+            onSave={(value) => { if (value !== task.name) updateTask(task.id, { name: value }); setEditingCell(null); }}
+            onCancel={() => setEditingCell(null)}
+          />
+        );
+      }
+      return (
+        <div className="flex items-center gap-2">
+          {ft.hasChildren && (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleExpand(task.id); }}
+              className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+            >
+              {ft.isExpanded ? <ChevronDown /> : <ChevronRight />}
             </button>
-          </div>
-
-          {/* Checkbox */}
-          <div className="w-8 flex-shrink-0">
-            <button onClick={() => toggleStatus(task.id, task.status)}
-              className={`w-4 h-4 rounded border flex items-center justify-center ${status.bg}`}>
-              {task.status === "COMPLETE" && <span className="text-white text-[8px]">✓</span>}
-            </button>
-          </div>
-
-          {/* Task Name */}
-          <div className="flex-1 min-w-0 px-2 py-2 cursor-pointer" onClick={() => setSelectedTask(task)}>
-            <span className="text-sm text-gray-900 dark:text-white truncate block">{task.name}</span>
-          </div>
-
-          {/* Status */}
-          <div className="w-24 flex-shrink-0 px-2 py-2">
-            {editingCell?.taskId === task.id && editingCell?.colId === "status" ? (
-              <select value={editingCell.value} onChange={(e) => saveEdit(task.id, "status", e.target.value)}
-                onBlur={() => setEditingCell(null)} className="w-full h-6 px-1 text-xs border border-blue-500 rounded bg-white" autoFocus>
-                <option value="OPEN">To Do</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="COMPLETE">Done</option>
-              </select>
-            ) : (
-              <button onClick={() => canManage && setEditingCell({ taskId: task.id, colId: "status", value: task.status })}
-                className={`px-2 py-1 rounded-full text-xs font-medium ${status.bg}`}>
-                {status.text}
-              </button>
-            )}
-          </div>
-
-          {/* Priority */}
-          <div className="w-20 flex-shrink-0 px-2 py-2">
-            <button onClick={() => canManage && cyclePriority(task.id, task.priority)}
-              className={`px-2 py-1 rounded text-xs font-medium ${priority.bg}`}>
-              {priority.text}
-            </button>
-          </div>
-
-          {/* Assignee */}
-          <div className="w-28 flex-shrink-0 px-2 py-2">
-            {task.assignee ? (
-              <div className="flex items-center gap-1">
-                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
-                  {task.assignee.name.charAt(0)}
-                </div>
-                <span className="text-xs truncate">{task.assignee.name.split(" ")[0]}</span>
-              </div>
-            ) : (
-              <span className="text-xs text-gray-400">—</span>
-            )}
-          </div>
-
-          {/* Timeline */}
-          <div className="w-36 flex-shrink-0 px-2 py-2">
-            {timelineEdit?.taskId === task.id ? (
-              <div className="flex gap-1 items-center">
-                <input type="date" value={timelineEdit.start} onChange={(e) => setTimelineEdit({ ...timelineEdit, start: e.target.value })}
-                  className="h-6 px-1 text-xs border rounded w-28" />
-                <span className="text-gray-400">→</span>
-                <input type="date" value={timelineEdit.end} onChange={(e) => setTimelineEdit({ ...timelineEdit, end: e.target.value })}
-                  className="h-6 px-1 text-xs border rounded w-28" />
-                <button onClick={saveTimeline} className="px-1 h-5 bg-blue-500 text-white rounded text-[10px]">✓</button>
-                <button onClick={() => setTimelineEdit(null)} className="text-gray-400 text-[10px]">✕</button>
-              </div>
-            ) : (
-              <button onClick={() => setTimelineEdit({ taskId: task.id, start: task.startDate?.split("T")[0] || "", end: task.dueDate?.split("T")[0] || "" })}
-                className="text-xs text-gray-500 hover:text-blue-600">
-                {task.startDate && task.dueDate ? (
-                  <span>{new Date(task.startDate).toLocaleDateString("en", { month: "short", day: "numeric" })} → {new Date(task.dueDate).toLocaleDateString("en", { month: "short", day: "numeric" })}</span>
-                ) : (
-                  <span className="text-blue-500">+ Add dates</span>
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Duration */}
-          <div className="w-20 flex-shrink-0 px-2 py-2 text-xs text-gray-500">
-            {duration || "—"}
-          </div>
-
-          {/* Subtasks */}
-          <div className="w-16 flex-shrink-0 px-2 py-2 text-xs text-gray-500">
-            {children.length > 0 ? (
-              <span>{children.filter(c => c.status === "COMPLETE").length}/{children.length}</span>
-            ) : "—"}
-          </div>
+          )}
+          {!ft.hasChildren && <div className="w-5" />}
+          <span
+            onClick={() => setSelectedTask(task)}
+            onDoubleClick={() => canManage && setEditingCell({ taskId: task.id, columnId: "name" })}
+            className={`flex-1 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 ${task.status === "COMPLETE" ? "line-through text-gray-400" : "text-gray-900 dark:text-white"}`}
+          >
+            {task.name}
+          </span>
         </div>
+      );
+    }
 
-        {/* Subtasks */}
-        {isExpanded && children.map(child => renderRow(child, depth + 1))}
+    // Status
+    if (column.id === "status") {
+      if (isEditing && canManage) {
+        return (
+          <InlineSelect
+            value={task.status}
+            options={[
+              { value: "OPEN", label: "To Do" },
+              { value: "IN_PROGRESS", label: "In Progress" },
+              { value: "COMPLETE", label: "Done" },
+            ]}
+            onSave={(value) => { updateTask(task.id, { status: value }); setEditingCell(null); }}
+            onCancel={() => setEditingCell(null)}
+          />
+        );
+      }
+      return (
+        <div onClick={(e) => { e.stopPropagation(); if (canManage) cycleStatus(task.id, task.status); }}>
+          <StatusBadge status={task.status} onClick={canManage ? () => cycleStatus(task.id, task.status) : undefined} />
+        </div>
+      );
+    }
 
-        {/* Add subtask */}
-        {isExpanded && canManage && (
-          <div className="flex items-center bg-blue-50/30 dark:bg-blue-900/10" style={{ paddingLeft: indent + 24 }}>
-            {addingSubtask === task.id ? (
-              <div className="flex items-center gap-2 py-1 px-2 w-full">
-                <input type="text" value={newSubtaskName} onChange={(e) => setNewSubtaskName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addSubtask(task.id); if (e.key === "Escape") { setAddingSubtask(null); setNewSubtaskName(""); }}}
-                  placeholder="Subtask name..." className="flex-1 h-6 px-2 text-xs border border-blue-300 rounded" autoFocus />
-                <button onClick={() => addSubtask(task.id)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs">Add</button>
-                <button onClick={() => { setAddingSubtask(null); setNewSubtaskName(""); }} className="text-gray-400 text-xs">✕</button>
-              </div>
-            ) : (
-              <button onClick={() => setAddingSubtask(task.id)} className="py-1 px-2 text-xs text-blue-600 font-medium">+ Add subtask</button>
-            )}
-          </div>
-        )}
-      </div>
-    );
+    // Priority
+    if (column.id === "priority") {
+      if (isEditing && canManage) {
+        return (
+          <InlineSelect
+            value={task.priority}
+            options={[
+              { value: "LOW", label: "Low" },
+              { value: "MEDIUM", label: "Medium" },
+              { value: "HIGH", label: "High" },
+              { value: "URGENT", label: "Urgent" },
+            ]}
+            onSave={(value) => { updateTask(task.id, { priority: value }); setEditingCell(null); }}
+            onCancel={() => setEditingCell(null)}
+          />
+        );
+      }
+      return (
+        <div onClick={(e) => { e.stopPropagation(); if (canManage) cyclePriority(task.id, task.priority); }}>
+          <PriorityBadge priority={task.priority} onClick={canManage ? () => cyclePriority(task.id, task.priority) : undefined} />
+        </div>
+      );
+    }
+
+    // Assignee
+    if (column.id === "assignee") {
+      if (isEditing && canManage) {
+        return (
+          <InlineSelect
+            value={task.assigneeUserId || ""}
+            options={[
+              { value: "", label: "Unassigned" },
+              ...users.map(u => ({ value: u.id, label: u.name })),
+            ]}
+            onSave={(value) => { updateTask(task.id, { assigneeUserId: value || null }); setEditingCell(null); }}
+            onCancel={() => setEditingCell(null)}
+          />
+        );
+      }
+      if (task.assignee) {
+        return (
+          <button
+            onClick={(e) => { e.stopPropagation(); if (canManage) setEditingCell({ taskId: task.id, columnId: "assignee" }); }}
+            className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+              {task.assignee.name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{task.assignee.name.split(" ")[0]}</span>
+          </button>
+        );
+      }
+      return (
+        <button
+          onClick={(e) => { e.stopPropagation(); if (canManage) setEditingCell({ taskId: task.id, columnId: "assignee" }); }}
+          className="text-sm text-gray-400 hover:text-blue-500 transition-colors"
+        >
+          + Assign
+        </button>
+      );
+    }
+
+    // Start Date
+    if (column.id === "startDate") {
+      if (isEditing && canManage) {
+        return (
+          <InlineDateEdit
+            value={task.startDate}
+            onSave={(value) => { updateTask(task.id, { startDate: value }); setEditingCell(null); }}
+            onCancel={() => setEditingCell(null)}
+          />
+        );
+      }
+      return (
+        <button
+          onClick={(e) => { e.stopPropagation(); if (canManage) setEditingCell({ taskId: task.id, columnId: "startDate" }); }}
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors"
+        >
+          {task.startDate ? formatDate(task.startDate) : <span className="text-gray-300">-</span>}
+        </button>
+      );
+    }
+
+    // Due Date
+    if (column.id === "dueDate") {
+      if (isEditing && canManage) {
+        return (
+          <InlineDateEdit
+            value={task.dueDate}
+            onSave={(value) => { updateTask(task.id, { dueDate: value }); setEditingCell(null); }}
+            onCancel={() => setEditingCell(null)}
+          />
+        );
+      }
+      return (
+        <button
+          onClick={(e) => { e.stopPropagation(); if (canManage) setEditingCell({ taskId: task.id, columnId: "dueDate" }); }}
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors"
+        >
+          {task.dueDate ? formatDate(task.dueDate) : <span className="text-gray-300">-</span>}
+        </button>
+      );
+    }
+
+    // Duration
+    if (column.id === "duration") {
+      const dur = getDuration(task.startDate, task.dueDate);
+      return <span className="text-xs text-gray-500">{dur}</span>;
+    }
+
+    // Subtasks
+    if (column.id === "subtasks") {
+      const { completed, total } = getSubtaskCount(task.children);
+      if (total === 0) return <span className="text-xs text-gray-300">-</span>;
+      return (
+        <button
+          onClick={() => toggleExpand(task.id)}
+          className="text-xs font-medium text-gray-500 hover:text-blue-500 transition-colors"
+        >
+          {completed}/{total}
+        </button>
+      );
+    }
+
+    // Actions
+    if (column.id === "actions") {
+      return (
+        <div className="flex items-center justify-center gap-1">
+          {canManage && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setAddingSubtask(task.id); }}
+              className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Add subtask"
+            >
+              <Plus />
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return null;
   };
+
+
+  // ============================================
+  // Render JSX
+  // ============================================
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Monday.com Style Table */}
-      <div className="overflow-x-auto" ref={tableRef}>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Header Toolbar */}
+      <div className="px-4 py-3 bg-gray-50/80 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-sm">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <Search />
+            </div>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X />
+              </button>
+            )}
+          </div>
+
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            {(["ALL", "OPEN", "IN_PROGRESS", "COMPLETE"] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  statusFilter === status
+                    ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                }`}
+              >
+                {status === "ALL" ? "All" : status === "OPEN" ? "To Do" : status === "IN_PROGRESS" ? "In Progress" : "Done"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto" ref={containerRef}>
         {/* Header */}
-        <div className="flex bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <div className="w-8 flex-shrink-0 px-2 py-2" />
-          <div className="w-8 flex-shrink-0 px-2 py-2" />
-          <div className="flex-1 min-w-[200px] px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Task Name</div>
-          <div className="w-24 flex-shrink-0 px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Status</div>
-          <div className="w-20 flex-shrink-0 px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Priority</div>
-          <div className="w-28 flex-shrink-0 px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Assignee</div>
-          <div className="w-36 flex-shrink-0 px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Timeline</div>
-          <div className="w-20 flex-shrink-0 px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Duration</div>
-          <div className="w-16 flex-shrink-0 px-2 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">Subs</div>
+        <div className="flex bg-gray-100/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 select-none">
+          {columns.map((col) => (
+            <div
+              key={col.id}
+              className="flex-shrink-0 flex items-center group"
+              style={{ width: col.width }}
+            >
+              <div className="flex-1 px-3 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {col.label}
+              </div>
+              {/* Resize Handle */}
+              {col.id !== "checkbox" && col.id !== "actions" && (
+                <div
+                  onMouseDown={(e) => handleResizeStart(e, col.id, col.width)}
+                  className="absolute right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ width: 4 }}
+                />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Rows */}
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {tasks.length > 0 ? tasks.map(task => renderRow(task)) : (
-            <div className="py-12 text-center text-gray-400">No tasks yet. Click "+ Add task" below.</div>
+          {filteredTasks.length > 0 ? (
+            filteredTasks.map((ft) => (
+              <div
+                key={ft.task.id}
+                className={`flex items-center hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors ${ft.task.status === "COMPLETE" ? "opacity-60" : ""} ${editingCell?.taskId === ft.task.id ? "bg-blue-50/50 dark:bg-blue-900/20" : ""}`}
+              >
+                {columns.map((col) => (
+                  <div
+                    key={col.id}
+                    className="flex-shrink-0 px-1"
+                    style={{ width: col.width }}
+                  >
+                    {col.id === "checkbox" && (
+                      <div className="pl-2" style={{ paddingLeft: ft.depth * 20 + 8 }}>
+                        {renderCell(ft, col)}
+                      </div>
+                    )}
+                    {col.id !== "checkbox" && (
+                      <div className="py-2 pr-2">
+                        {renderCell(ft, col)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className="py-16 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 mb-1">No tasks found</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                {searchQuery ? "Try a different search" : "Create your first task below"}
+              </p>
+            </div>
           )}
 
-          {/* Add Task */}
+          {/* Add Task Row */}
           {addingTask && (
-            <div className="flex items-center bg-blue-50 dark:bg-blue-900/20">
-              <div className="w-8 flex-shrink-0 px-2 py-2" />
-              <div className="w-8 flex-shrink-0 px-2 py-2" />
-              <div className="flex-1 min-w-[200px] px-2 py-2">
-                <input ref={inputRef} type="text" value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") { setAddingTask(false); setNewTaskName(""); }}}
-                  placeholder="New task name..." className="w-full h-8 px-3 text-sm border border-blue-300 rounded" autoFocus />
+            <div className="flex items-center bg-blue-50/50 dark:bg-blue-900/20 border-t-2 border-blue-500">
+              <div className="flex-shrink-0" style={{ width: 44 }}>
+                <div className="pl-2 py-2">
+                  <div className="w-5 h-5 border-2 border-blue-500 rounded" />
+                </div>
               </div>
-              <div className="w-24 flex-shrink-0 px-2 py-2" />
-              <div className="w-20 flex-shrink-0 px-2 py-2" />
-              <div className="w-28 flex-shrink-0 px-2 py-2" />
-              <div className="w-36 flex-shrink-0 px-2 py-2" />
-              <div className="w-20 flex-shrink-0 px-2 py-2" />
-              <div className="w-16 flex-shrink-0 px-2 py-2" />
+              <div style={{ width: 350 }}>
+                <div className="px-2 py-2">
+                  <input
+                    type="text"
+                    value={newTaskName}
+                    onChange={(e) => setNewTaskName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addTask();
+                      if (e.key === "Escape") { setAddingTask(false); setNewTaskName(""); }
+                    }}
+                    placeholder="Task name..."
+                    autoFocus
+                    className="w-full h-8 px-3 text-sm bg-white dark:bg-gray-800 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div style={{ width: 140 }}>
+                <div className="px-2 py-2">
+                  <StatusBadge status="OPEN" />
+                </div>
+              </div>
+              <div style={{ width: 460 }}>
+                <div className="flex items-center gap-2 px-2 py-2">
+                  <button
+                    onClick={addTask}
+                    disabled={!newTaskName.trim()}
+                    className="px-4 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => { setAddingTask(false); setNewTaskName(""); }}
+                    className="px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Subtask Row */}
+          {addingSubtask && (
+            <div className="flex items-center bg-purple-50/50 dark:bg-purple-900/20">
+              <div className="flex-shrink-0" style={{ width: 44 }}>
+                <div className="pl-2 py-2">
+                  <div className="w-5 h-5 border-2 border-purple-400 rounded opacity-50" />
+                </div>
+              </div>
+              <div style={{ width: 350 }}>
+                <div className="px-2 py-2">
+                  <input
+                    type="text"
+                    value={newSubtaskName}
+                    onChange={(e) => setNewSubtaskName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addSubtask(addingSubtask);
+                      if (e.key === "Escape") { setAddingSubtask(null); setNewSubtaskName(""); }
+                    }}
+                    placeholder="Subtask name..."
+                    autoFocus
+                    className="w-full h-8 px-3 text-sm bg-white dark:bg-gray-800 border border-purple-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+              <div style={{ width: 620 }}>
+                <div className="flex items-center gap-2 px-2 py-2">
+                  <button
+                    onClick={() => addSubtask(addingSubtask)}
+                    disabled={!newSubtaskName.trim()}
+                    className="px-4 py-1.5 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => { setAddingSubtask(null); setNewSubtaskName(""); }}
+                    className="px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-        <button onClick={() => setAddingTask(true)} className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-medium">
-          + Add task
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50/80 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setAddingTask(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add task
         </button>
-        <span className="text-xs text-gray-400">{tasks.length} tasks</span>
-      </div>
-
-      {/* Hint */}
-      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 text-center">
-        <p className="text-xs text-gray-400">💡 Click task name to open details • Click ▶ to expand • Click timeline to add dates</p>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {filteredTasks.length} {filteredTasks.length === 1 ? "task" : "tasks"}
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-mono">/</kbd> to search
+          </span>
+        </div>
       </div>
 
       {/* Task Detail Panel */}
@@ -361,7 +972,7 @@ export default function SpreadsheetView({
           task={selectedTask}
           users={users}
           onClose={() => setSelectedTask(null)}
-          onRefresh={() => { onRefresh(); }}
+          onRefresh={onRefresh}
           canManage={canManage}
         />
       )}
