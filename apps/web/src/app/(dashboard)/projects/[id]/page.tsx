@@ -3,6 +3,18 @@
 import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import dynamic from "next/dynamic";
+import ChatWidget from "@/components/chat/ChatWidget";
+
+// Dynamic import for GanttChart to avoid SSR issues
+const GanttChart = dynamic(() => import("@/components/gantt/GanttChart"), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-8 flex items-center justify-center">
+      <div className="text-gray-500 dark:text-gray-400">Loading timeline...</div>
+    </div>
+  ),
+});
 
 interface Task {
   id: string;
@@ -10,10 +22,15 @@ interface Task {
   name: string;
   status: string;
   category: string | null;
+  priority: string;
   assigneeUserId: string | null;
   payoutAmount: string | null;
   expectedDurationMinutes: number;
   isFromTemplate: boolean;
+  startDate: string | null;
+  dueDate: string | null;
+  description: string | null;
+  tags: string[];
   assignee: {
     id: string;
     name: string;
@@ -63,7 +80,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"stages" | "details">("stages");
+  const [activeTab, setActiveTab] = useState<"stages" | "details" | "timeline">("stages");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -303,6 +320,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           >
             Details
           </button>
+          <button
+            onClick={() => setActiveTab("timeline")}
+            className={`pb-3 px-1 text-sm font-medium border-b-2 flex items-center gap-2 ${
+              activeTab === "timeline"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Timeline
+          </button>
         </nav>
       </div>
 
@@ -364,7 +394,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           ))}
         </div>
-      ) : (
+      ) : activeTab === "details" ? (
         /* Details Tab */
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
           <div className="space-y-4">
@@ -410,7 +440,38 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
-      )}
+      ) : activeTab === "timeline" ? (
+        /* Timeline Tab - Gantt Chart */
+        project.stages.length > 0 ? (
+          <GanttChart
+            projectId={project.id}
+            stages={project.stages}
+            onTaskUpdate={async (taskId, startDate, dueDate) => {
+              try {
+                await fetch(`/api/tasks/${taskId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ startDate, dueDate }),
+                });
+                fetchProject();
+              } catch (error) {
+                console.error("Error updating task dates:", error);
+              }
+            }}
+          />
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p className="text-gray-500 dark:text-gray-400">No stages yet</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Add stages and tasks to see the timeline</p>
+          </div>
+        )
+      ) : null}
+
+      {/* Chat Widget for collaboration */}
+      <ChatWidget projectId={project.id} />
 
       {/* Task Details Modal */}
       {showTaskModal && selectedTask && (
