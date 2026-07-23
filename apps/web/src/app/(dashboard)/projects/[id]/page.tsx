@@ -80,7 +80,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"stages" | "details" | "timeline">("stages");
+  const [activeTab, setActiveTab] = useState<"overview" | "preproduction" | "production" | "delivery">("overview");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -297,177 +297,104 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - DaVinci Resolve Style */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="flex gap-6">
+        <nav className="flex gap-1">
           <button
-            onClick={() => setActiveTab("stages")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 ${
-              activeTab === "stages"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            onClick={() => setActiveTab("overview")}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              activeTab === "overview"
+                ? "border-blue-600 text-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             }`}
           >
-            Stages & Tasks
+            📊 Overview
           </button>
           <button
-            onClick={() => setActiveTab("details")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 ${
-              activeTab === "details"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            onClick={() => setActiveTab("preproduction")}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              activeTab === "preproduction"
+                ? "border-purple-600 text-purple-600 bg-purple-50 dark:bg-purple-900/20"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             }`}
           >
-            Details
+            🎬 Pre-Production
           </button>
           <button
-            onClick={() => setActiveTab("timeline")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 flex items-center gap-2 ${
-              activeTab === "timeline"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            onClick={() => setActiveTab("production")}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              activeTab === "production"
+                ? "border-orange-600 text-orange-600 bg-orange-50 dark:bg-orange-900/20"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             }`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Timeline
+            🎥 Production
+          </button>
+          <button
+            onClick={() => setActiveTab("delivery")}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              activeTab === "delivery"
+                ? "border-green-600 text-green-600 bg-green-50 dark:bg-green-900/20"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            📦 Delivery
           </button>
         </nav>
       </div>
 
-      {activeTab === "stages" ? (
-        /* Stages & Tasks View - Kanban Style */
-        <div className="space-y-6">
-          {project.stages.map((stage) => (
-            <div key={stage.id} className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {/* Stage Header */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{stage.name}</h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {getStageProgress(stage)}%
-                  </span>
-                </div>
-                <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                  <div 
-                    className="bg-blue-500 h-1.5 rounded-full"
-                    style={{ width: `${getStageProgress(stage)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Tasks */}
-              <div className="p-4 space-y-2">
-                {stage.tasks
-                  .filter(t => !t.parentTaskId) // Only show root tasks
-                  .map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      isEditor={isEditor}
-                      canManage={canManage}
-                      onViewDetails={() => {
-                        setSelectedTask(task);
-                        setShowTaskModal(true);
-                      }}
-                      onAssign={() => {
-                        setSelectedTask(task);
-                        setShowAssignModal(true);
-                      }}
-                      onComplete={() => completeTask(task.id)}
-                      onAddSubtask={() => {
-                        setEditingTask(task);
-                        setShowAddSubtaskModal(true);
-                      }}
-                      getStatusBadge={getStatusBadge}
-                      getCategoryBadge={getCategoryBadge}
-                    />
-                  ))}
-                
-                {stage.tasks.filter(t => !t.parentTaskId).length === 0 && (
-                  <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                    No tasks yet
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : activeTab === "details" ? (
-        /* Details Tab */
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-gray-500 dark:text-gray-400">Description</label>
-              <p className="text-gray-900 dark:text-white mt-1">
-                {project.description || "No description"}
-              </p>
-            </div>
-            
-            {project.order && (
-              <>
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div>
-                    <label className="text-sm text-gray-500 dark:text-gray-400">Client</label>
-                    <p className="text-gray-900 dark:text-white">{project.order.client.name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500 dark:text-gray-400">Service</label>
-                    <p className="text-gray-900 dark:text-white">{project.order.service.name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500 dark:text-gray-400">Brand</label>
-                    <p className="text-gray-900 dark:text-white">{project.order.brand.name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500 dark:text-gray-400">Status</label>
-                    <p className="text-gray-900 dark:text-white capitalize">{project.order.status.toLowerCase().replace("_", " ")}</p>
-                  </div>
-                </div>
-              </>
-            )}
-            
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <label className="text-sm text-gray-500 dark:text-gray-400">Created</label>
-              <p className="text-gray-900 dark:text-white">
-                {new Date(project.createdAt).toLocaleDateString("id-ID", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : activeTab === "timeline" ? (
-        /* Timeline Tab - Gantt Chart */
-        project.stages.length > 0 ? (
-          <GanttChart
-            projectId={project.id}
-            stages={project.stages}
-            onTaskUpdate={async (taskId, startDate, dueDate) => {
-              try {
-                await fetch(`/api/tasks/${taskId}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ startDate, dueDate }),
-                });
-                fetchProject();
-              } catch (error) {
-                console.error("Error updating task dates:", error);
-              }
-            }}
-          />
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-gray-500 dark:text-gray-400">No stages yet</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Add stages and tasks to see the timeline</p>
-          </div>
-        )
+      {/* Tab Content */}
+      {activeTab === "overview" ? (
+        /* Overview Dashboard */
+        <ProjectOverviewDashboard project={project} />
+      ) : activeTab === "preproduction" ? (
+        /* Pre-Production - Tasks + Apps */
+        <ProductionStageView
+          project={project}
+          stage="PRE_PRODUCTION"
+          apps={["scriptwriter", "storyboard", "canvas", "cadrage", "shotlist"]}
+          tasks={project.stages.flatMap(s => s.tasks).filter(t => !t.parentTaskId)}
+          isEditor={isEditor}
+          canManage={canManage}
+          onViewDetails={(task) => { setSelectedTask(task); setShowTaskModal(true); }}
+          onAssign={(task) => { setSelectedTask(task); setShowAssignModal(true); }}
+          onComplete={completeTask}
+          onAddSubtask={(task) => { setEditingTask(task); setShowAddSubtaskModal(true); }}
+          getStatusBadge={getStatusBadge}
+          getCategoryBadge={getCategoryBadge}
+        />
+      ) : activeTab === "production" ? (
+        /* Production - Tasks + Apps */
+        <ProductionStageView
+          project={project}
+          stage="PRODUCTION"
+          apps={["callsheets", "shotlogger"]}
+          tasks={project.stages.flatMap(s => s.tasks).filter(t => !t.parentTaskId)}
+          isEditor={isEditor}
+          canManage={canManage}
+          onViewDetails={(task) => { setSelectedTask(task); setShowTaskModal(true); }}
+          onAssign={(task) => { setSelectedTask(task); setShowAssignModal(true); }}
+          onComplete={completeTask}
+          onAddSubtask={(task) => { setEditingTask(task); setShowAddSubtaskModal(true); }}
+          getStatusBadge={getStatusBadge}
+          getCategoryBadge={getCategoryBadge}
+        />
+      ) : activeTab === "delivery" ? (
+        /* Delivery - Tasks + Apps */
+        <ProductionStageView
+          project={project}
+          stage="POST_PRODUCTION"
+          apps={["reviewlinks", "deliverables"]}
+          tasks={project.stages.flatMap(s => s.tasks).filter(t => !t.parentTaskId)}
+          isEditor={isEditor}
+          canManage={canManage}
+          onViewDetails={(task) => { setSelectedTask(task); setShowTaskModal(true); }}
+          onAssign={(task) => { setSelectedTask(task); setShowAssignModal(true); }}
+          onComplete={completeTask}
+          onAddSubtask={(task) => { setEditingTask(task); setShowAddSubtaskModal(true); }}
+          getStatusBadge={getStatusBadge}
+          getCategoryBadge={getCategoryBadge}
+        />
       ) : null}
 
       {/* Chat Widget for collaboration */}
@@ -933,6 +860,249 @@ function AddSubtaskModal({
             Add Subtask
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Project Overview Dashboard Component
+function ProjectOverviewDashboard({ project }: { project: Project }) {
+  // Calculate stats
+  const totalTasks = project.stages.reduce((acc, stage) => acc + stage.tasks.filter(t => !t.parentTaskId).length, 0);
+  const completedTasks = project.stages.reduce((acc, stage) => acc + stage.tasks.filter(t => !t.parentTaskId && t.status === "COMPLETE").length, 0);
+  const totalDuration = project.stages.reduce((acc, stage) => 
+    acc + stage.tasks.reduce((tAcc, t) => tAcc + (t.parentTaskId ? 0 : t.expectedDurationMinutes), 0), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Tasks Completed</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {completedTasks}/{totalTasks}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Duration</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {Math.floor(totalDuration / 60)}h {totalDuration % 60}m
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Stages</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {project.stages.length}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Progress</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stage Progress */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Stage Progress</h3>
+        <div className="space-y-4">
+          {project.stages.map((stage) => {
+            const stageTotal = stage.tasks.filter(t => !t.parentTaskId).length;
+            const stageCompleted = stage.tasks.filter(t => !t.parentTaskId && t.status === "COMPLETE").length;
+            const stageProgress = stageTotal > 0 ? Math.round((stageCompleted / stageTotal) * 100) : 0;
+            
+            return (
+              <div key={stage.id} className="flex items-center gap-4">
+                <div className="w-32 text-sm text-gray-600 dark:text-gray-400 truncate">{stage.name}</div>
+                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${stageProgress}%` }}
+                  />
+                </div>
+                <div className="w-12 text-sm text-gray-500 dark:text-gray-400 text-right">
+                  {stageProgress}%
+                </div>
+              </div>
+            );
+          })}
+          {project.stages.length === 0 && (
+            <p className="text-gray-400 dark:text-gray-500 text-center py-4">No stages yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button className="flex items-center gap-2 px-4 py-3 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span className="text-sm font-medium">Scriptwriter</span>
+          </button>
+          <button className="flex items-center gap-2 px-4 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium">Storyboard</span>
+          </button>
+          <button className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span className="text-sm font-medium">Shotlist</span>
+          </button>
+          <button className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium">Timeline</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Production Stage View Component
+function ProductionStageView({
+  project,
+  stage,
+  apps,
+  tasks,
+  isEditor,
+  canManage,
+  onViewDetails,
+  onAssign,
+  onComplete,
+  onAddSubtask,
+  getStatusBadge,
+  getCategoryBadge,
+}: {
+  project: Project;
+  stage: string;
+  apps: string[];
+  tasks: Task[];
+  isEditor: boolean;
+  canManage: boolean;
+  onViewDetails: (task: Task) => void;
+  onAssign: (task: Task) => void;
+  onComplete: (taskId: string) => void;
+  onAddSubtask: (task: Task) => void;
+  getStatusBadge: (status: string) => string;
+  getCategoryBadge: (category: string | null) => string;
+}) {
+  const stageTasks = tasks.filter(t => t.category === stage || (!t.category && stage === "PRE_PRODUCTION"));
+  
+  // App definitions
+  const appInfo: Record<string, { name: string; icon: string; color: string }> = {
+    scriptwriter: { name: "Scriptwriter", icon: "📝", color: "purple" },
+    storyboard: { name: "Storyboard", icon: "🎨", color: "orange" },
+    canvas: { name: "Canvas", icon: "🟨", color: "blue" },
+    cadrage: { name: "Cadrage", icon: "🎬", color: "cyan" },
+    shotlist: { name: "Shotlist", icon: "📋", color: "green" },
+    callsheets: { name: "Call Sheets", icon: "📅", color: "yellow" },
+    shotlogger: { name: "Shot Logger", icon: "📹", color: "pink" },
+    reviewlinks: { name: "Review Links", icon: "🔗", color: "indigo" },
+    deliverables: { name: "Deliverables", icon: "📦", color: "emerald" },
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Apps Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          {stage === "PRE_PRODUCTION" ? "Pre-Production Apps" : 
+           stage === "PRODUCTION" ? "Production Apps" : "Delivery Apps"}
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {apps.map((app) => {
+            const info = appInfo[app] || { name: app, icon: "📱", color: "gray" };
+            return (
+              <button
+                key={app}
+                className="flex flex-col items-center gap-2 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border border-gray-200 dark:border-gray-700"
+              >
+                <span className="text-2xl">{info.icon}</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{info.name}</span>
+                <span className="text-[10px] text-gray-400">Coming soon</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tasks Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h3>
+        {stageTasks.length > 0 ? (
+          <div className="space-y-2">
+            {stageTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                isEditor={isEditor}
+                canManage={canManage}
+                onViewDetails={() => onViewDetails(task)}
+                onAssign={() => onAssign(task)}
+                onComplete={() => onComplete(task.id)}
+                onAddSubtask={() => onAddSubtask(task)}
+                getStatusBadge={getStatusBadge}
+                getCategoryBadge={getCategoryBadge}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <p className="text-gray-500 dark:text-gray-400">No tasks for this stage</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Tasks will appear here based on their category</p>
+          </div>
+        )}
       </div>
     </div>
   );
