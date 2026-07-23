@@ -23,7 +23,7 @@ export default function Sidebar({ organizationApps }: SidebarProps) {
 
   // Group by category
   const coreApps = navItems.filter(a => a.category === "core" && a.id !== "settings" && a.id !== "profile");
-  const businessApps = navItems.filter(a => a.category === "business");
+  const businessApps = navItems.filter(a => a.category === "business-os");
   const integrations = navItems.filter(a => a.category === "integrations");
 
   return (

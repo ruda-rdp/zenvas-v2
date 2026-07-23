@@ -48,7 +48,9 @@ export async function GET(request: Request) {
     });
 
     // Get user info for all userIds in the logs
-    const userIds = [...new Set(logs.map(l => l.userId).filter(Boolean))];
+    const userIds = logs
+      .map(l => l.userId)
+      .filter((id): id is string => id !== null);
     const users = userIds.length > 0
       ? await prisma.user.findMany({
           where: { id: { in: userIds } },

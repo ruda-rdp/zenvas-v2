@@ -21,9 +21,14 @@ model Organization {
 
   // Plan & Apps (Org-level feature flags per ADR-0005)
   plan      String   @default("solo")  // "solo" | "growing" | "agency"
-  apps      String[] @default(["project-os", "human-capital-os"])
-            // Core apps are always present
-            // Optional: "business-os", "lead-management", "odoo-sync"
+
+  // Packages installed (e.g., "project-os", "human-capital-os", "business-os")
+  packages  String[] @default(["project-os", "human-capital-os"])
+
+  // Individual apps installed (e.g., "projects", "tasks", "clients", "orders", etc.)
+  // Default is set in application code (apps/web/src/lib/db-defaults.ts)
+  // Default: ["projects", "stages", "tasks", "board", "team", "payouts"]
+  apps      String[] @default([])
 
   brands    Brand[]
   users     User[]

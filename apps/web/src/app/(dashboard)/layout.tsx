@@ -15,19 +15,25 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Fetch installed apps for the organization
+  // Fetch installed packages and apps for the organization
+  let installedPackages: string[] = [];
   let installedApps: string[] = [];
   if (session.user.organizationId) {
     const org = await prisma.organization.findUnique({
       where: { id: session.user.organizationId },
-      select: { apps: true },
+      select: { packages: true, apps: true },
     });
+    installedPackages = org?.packages || [];
     installedApps = org?.apps || [];
   }
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
-      <DashboardSidebar user={session.user} installedApps={installedApps} />
+      <DashboardSidebar
+        user={session.user}
+        installedPackages={installedPackages}
+        installedApps={installedApps}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header with Notifications */}
         <header className="h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-4">

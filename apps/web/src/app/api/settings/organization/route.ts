@@ -34,7 +34,6 @@ export async function GET() {
     // Get visible nav items based on installed apps
     const navItems = await getVisibleNavItems(
       user.organization.id,
-      null, // No specific brand selected
       session.user.role
     );
 

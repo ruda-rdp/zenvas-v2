@@ -31,29 +31,43 @@ interface SidebarProps {
     email?: string | null;
     role: string;
   };
+  installedPackages?: string[];
   installedApps?: string[];
 }
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  roles?: string[];
+  requiresPackage?: string;
+  requiresApp?: string;
+}
+
+const navigation: NavItem[] = [
   // Core - Always visible
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/projects", icon: FolderKanban },
   { name: "Board", href: "/board", icon: Target, roles: ["EDITOR"] }, // Task board for editors
   { name: "Team", href: "/team", icon: Users },
-  
-  // Business modules - Hidden by default, shown when installed
-  { name: "Clients", href: "/clients", icon: Building2, roles: ["OWNER"], requiresApp: "clients" },
-  { name: "Orders", href: "/orders", icon: ClipboardList, roles: ["OWNER"], requiresApp: "orders" },
-  { name: "Leads", href: "/leads", icon: FileText, roles: ["OWNER"], requiresApp: "leads" },
+
+  // Business modules - Only shown if business-os package is installed
+  { name: "Clients", href: "/clients", icon: Building2, roles: ["OWNER"], requiresPackage: "business-os", requiresApp: "clients" },
+  { name: "Orders", href: "/orders", icon: ClipboardList, roles: ["OWNER"], requiresPackage: "business-os", requiresApp: "orders" },
+  { name: "Leads", href: "/leads", icon: FileText, roles: ["OWNER"], requiresPackage: "business-os", requiresApp: "leads" },
   { name: "Payouts", href: "/payouts", icon: Wallet, roles: ["OWNER"], requiresApp: "payouts" },
-  
+
   // Admin
   { name: "App Store", href: "/apps", icon: ShoppingCart, roles: ["OWNER"] },
 ];
 
 const SIDEBAR_STORAGE_KEY = "zenvas-sidebar-collapsed";
 
-export function DashboardSidebar({ user, installedApps = [] }: SidebarProps) {
+export function DashboardSidebar({
+  user,
+  installedPackages = [],
+  installedApps = []
+}: SidebarProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -106,18 +120,23 @@ export function DashboardSidebar({ user, installedApps = [] }: SidebarProps) {
   const isActive = (href: string) => pathname.startsWith(href);
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
-  // Filter navigation by user role AND installed apps
+  // Filter navigation by user role, packages, AND installed apps
   const filteredNav = navigation.filter(item => {
     // Check role first
     if (item.roles && !item.roles.includes(user.role)) {
       return false;
     }
-    
+
+    // Check if package is required and installed
+    if (item.requiresPackage && !installedPackages.includes(item.requiresPackage)) {
+      return false;
+    }
+
     // Check if app requires installation
     if (item.requiresApp && !installedApps.includes(item.requiresApp)) {
       return false;
     }
-    
+
     return true;
   });
 
