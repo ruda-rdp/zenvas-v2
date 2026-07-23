@@ -1,432 +1,417 @@
 /**
- * App Store - Module Installation
- * Odoo-style app marketplace for installing modules
+ * App Store - Package & App Installation
+ * Odoo-style app marketplace with package support
  */
 
 "use client";
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { 
-  ShoppingCart, 
-  Check, 
-  Building2, 
-  ClipboardList, 
-  FileText, 
-  BarChart3,
-  Palette,
-  Zap,
+import {
+  ShoppingCart,
+  Check,
   Lock,
-  DollarSign,
+  Package,
+  Sparkles,
+  Building2,
   Users,
   Briefcase,
   Film,
+  FileText,
+  Palette,
+  Zap,
+  DollarSign,
+  BarChart3,
   MapPin,
   Music,
   Calendar,
   MessageSquare,
   Video,
   FolderOpen,
-  FileText as FileTextIcon,
   Puzzle,
-  Clock
+  Clock,
+  ClipboardList,
 } from "lucide-react";
+import { PACKAGES, type Package as PackageType } from "@/lib/packages";
+import { getApp } from "@/lib/apps";
 
-interface App {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  price: string;
-  category: string;
-  features: string[];
-  status: "available" | "coming_soon";
+// Icon mapping for apps
+const iconMap: Record<string, React.ReactNode> = {
+  "clients": <Building2 className="w-8 h-8" />,
+  "leads": <FileText className="w-8 h-8" />,
+  "orders": <ClipboardList className="w-8 h-8" />,
+  "invoices": <DollarSign className="w-8 h-8" />,
+  "scriptwriter": <FileText className="w-8 h-8" />,
+  "storyboard": <Palette className="w-8 h-8" />,
+  "shotlist": <Film className="w-8 h-8" />,
+  "scheduling": <Calendar className="w-8 h-8" />,
+  "locations": <MapPin className="w-8 h-8" />,
+  "dailies": <Video className="w-8 h-8" />,
+  "vfx-tracker": <Sparkles className="w-8 h-8" />,
+  "deliverables": <FolderOpen className="w-8 h-8" />,
+  "music-sound": <Music className="w-8 h-8" />,
+  "team": <Users className="w-8 h-8" />,
+  "payouts": <DollarSign className="w-8 h-8" />,
+  "attendance": <Clock className="w-8 h-8" />,
+  "payroll": <DollarSign className="w-8 h-8" />,
+  "recruitment": <Briefcase className="w-8 h-8" />,
+  "analytics": <BarChart3 className="w-8 h-8" />,
+  "branding-kit": <Palette className="w-8 h-8" />,
+  "client-portal": <Building2 className="w-8 h-8" />,
+  "odoo-sync": <Zap className="w-8 h-8" />,
+  "projects": <FolderOpen className="w-8 h-8" />,
+  "stages": <FolderOpen className="w-8 h-8" />,
+  "tasks": <Check className="w-8 h-8" />,
+  "board": <Check className="w-8 h-8" />,
+};
+
+// Package icons
+const packageIconMap: Record<string, React.ReactNode> = {
+  "project-os": <Film className="w-10 h-10" />,
+  "human-capital-os": <Users className="w-10 h-10" />,
+  "business-os": <Building2 className="w-10 h-10" />,
+};
+
+interface PackageCardProps {
+  pkg: PackageType;
+  isInstalled: boolean;
+  installedApps: string[];
+  onInstall: (packageId: string, optionalApps: string[]) => void;
+  onUninstall: (packageId: string) => void;
+  isUpdating: boolean;
 }
 
-const AVAILABLE_APPS: App[] = [
-  // === FREE MODULES (Available) ===
-  {
-    id: "clients",
-    name: "Clients",
-    description: "Manage client contacts, companies, and communication history",
-    icon: <Building2 className="w-8 h-8" />,
-    price: "Free",
-    category: "Business OS",
-    features: [
-      "Client database with contacts",
-      "Company profiles",
-      "Communication history",
-      "Client portal access",
-    ],
-    status: "available",
-  },
-  {
-    id: "orders",
-    name: "Orders",
-    description: "Create and manage orders with invoice generation",
-    icon: <ClipboardList className="w-8 h-8" />,
-    price: "Free",
-    category: "Business OS",
-    features: [
-      "Order creation and tracking",
-      "Multi-service orders",
-      "Invoice generation",
-      "Payment status tracking",
-    ],
-    status: "available",
-  },
-  {
-    id: "leads",
-    name: "Leads",
-    description: "Capture and qualify leads with pipeline management",
-    icon: <FileText className="w-8 h-8" />,
-    price: "Free",
-    category: "Business OS",
-    features: [
-      "Lead capture forms",
-      "Pipeline kanban view",
-      "Lead qualification",
-      "Conversion tracking",
-    ],
-    status: "available",
-  },
-  {
-    id: "payouts",
-    name: "Payouts",
-    description: "Manage editor earnings, payout requests, and payment approval",
-    icon: <DollarSign className="w-8 h-8" />,
-    price: "Free",
-    category: "Business OS",
-    features: [
-      "Editor earnings tracking",
-      "Payout request management",
-      "Payment approval workflow",
-      "Payment history",
-    ],
-    status: "available",
-  },
+function PackageCard({
+  pkg,
+  isInstalled,
+  installedApps,
+  onInstall,
+  onUninstall,
+  isUpdating
+}: PackageCardProps) {
+  const [selectedOptionalApps, setSelectedOptionalApps] = useState<string[]>(pkg.optionalApps);
+  const [showDetails, setShowDetails] = useState(false);
 
-  // === BUSINESS OS (Coming Soon) ===
-  {
-    id: "budget",
-    name: "Budget Tracking",
-    description: "Track production costs, line items, and budget utilization",
-    icon: <DollarSign className="w-8 h-8" />,
-    price: "Pro",
-    category: "Business OS",
-    features: [
-      "Real-time budget tracking",
-      "Line item management",
-      "Scene change analysis",
-      "Budget vs actual reporting",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "cast",
-    name: "Cast & Talent",
-    description: "Track cast members, contracts, availability, and payments",
-    icon: <Users className="w-8 h-8" />,
-    price: "Pro",
-    category: "Business OS",
-    features: [
-      "Cast database with headshots",
-      "Contract tracking",
-      "Payment scheduling",
-      "Scene breakdown by cast",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "crew",
-    name: "Crew Management",
-    description: "Department heads, crew lists, deal memos, and payroll",
-    icon: <Briefcase className="w-8 h-8" />,
-    price: "Pro",
-    category: "Business OS",
-    features: [
-      "Department organization",
-      "Crew database with rates",
-      "Deal memo tracking",
-      "Timecard submission",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "analytics",
-    name: "Analytics Dashboard",
-    description: "Business intelligence with revenue, performance, and retention metrics",
-    icon: <BarChart3 className="w-8 h-8" />,
-    price: "Pro",
-    category: "Business OS",
-    features: [
-      "Revenue analytics",
-      "Project performance",
-      "Team productivity",
-      "Lead conversion funnel",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "branding",
-    name: "Branding Kit",
-    description: "Customize brand colors, logos, and client portal",
-    icon: <Palette className="w-8 h-8" />,
-    price: "Pro",
-    category: "Business OS",
-    features: [
-      "Brand color customization",
-      "Logo uploads",
-      "Client portal themes",
-      "Email templates",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "automation",
-    name: "Automation",
-    description: "Workflow automation and task triggers",
-    icon: <Zap className="w-8 h-8" />,
-    price: "Pro",
-    category: "Business OS",
-    features: [
-      "Auto task creation",
-      "Notification triggers",
-      "Status automations",
-      "Webhook integrations",
-    ],
-    status: "coming_soon",
-  },
+  const toggleOptionalApp = (appId: string) => {
+    setSelectedOptionalApps(prev =>
+      prev.includes(appId)
+        ? prev.filter(id => id !== appId)
+        : [...prev, appId]
+    );
+  };
 
-  // === PROJECT OS (Coming Soon) ===
-  {
-    id: "dailies",
-    name: "Dailies Review",
-    description: "Daily footage review, sync, and approval workflow",
-    icon: <Film className="w-8 h-8" />,
-    price: "Pro",
-    category: "Project OS",
-    features: [
-      "Frame.io integration",
-      "Daily sync from cameras",
-      "Print/Favorite/Reject",
-      "Timestamped notes per take",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "vfx",
-    name: "VFX Tracker",
-    description: "Track visual effects shots from onset to delivery",
-    icon: <Puzzle className="w-8 h-8" />,
-    price: "Pro",
-    category: "Project OS",
-    features: [
-      "VFX shot database",
-      "Vendor assignment",
-      "Version tracking",
-      "Delivery tracking",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "deliverables",
-    name: "Deliverables & QC",
-    description: "Netflix delivery requirements and QC checks",
-    icon: <FolderOpen className="w-8 h-8" />,
-    price: "Pro",
-    category: "Project OS",
-    features: [
-      "Episode delivery checklist",
-      "Technical specs check",
-      "Audio loudness verification",
-      "Delivery tracking",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "script",
-    name: "Script Writer",
-    description: "AI-assisted script writing with scene breakdowns",
-    icon: <FileTextIcon className="w-8 h-8" />,
-    price: "Free",
-    category: "Project OS",
-    features: [
-      "Scene-by-scene editor",
-      "Character management",
-      "Shot type suggestions",
-      "Export to PDF",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "storyboard",
-    name: "Storyboard Canvas",
-    description: "Visual storyboarding with drag-and-drop interface",
-    icon: <Palette className="w-8 h-8" />,
-    price: "Free",
-    category: "Project OS",
-    features: [
-      "Visual frame editor",
-      "Drag-and-drop sequencing",
-      "Shot type annotations",
-      "Export to PDF",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "shotlist",
-    name: "Shot List",
-    description: "Create detailed shot lists for production days",
-    icon: <Film className="w-8 h-8" />,
-    price: "Free",
-    category: "Project OS",
-    features: [
-      "Shot database per project",
-      "Shot type library",
-      "Equipment checklist",
-      "Export to call sheet",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "scheduling",
-    name: "Scheduling & Call Sheets",
-    description: "Production calendar and automated call sheet generation",
-    icon: <Calendar className="w-8 h-8" />,
-    price: "Pro",
-    category: "Project OS",
-    features: [
-      "Calendar-based planning",
-      "Episode breakdown",
-      "Call sheet generation",
-      "Google Calendar sync",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "locations",
-    name: "Location Management",
-    description: "Scout, book, and manage production locations",
-    icon: <MapPin className="w-8 h-8" />,
-    price: "Free",
-    category: "Project OS",
-    features: [
-      "Location database",
-      "Scout scheduling",
-      "Permit tracking",
-      "Sound report management",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "music",
-    name: "Music & Sound",
-    description: "Music licensing and soundtrack management",
-    icon: <Music className="w-8 h-8" />,
-    price: "Pro",
-    category: "Project OS",
-    features: [
-      "Music cue database",
-      "License tracking",
-      "Mix delivery specs",
-      "Music cue sheets",
-    ],
-    status: "coming_soon",
-  },
+  const getAppName = (appId: string) => {
+    const app = getApp(appId);
+    return app?.name || appId;
+  };
 
-  // === COLLABORATION (Coming Soon) ===
-  {
-    id: "chat",
-    name: "Communication Hub",
-    description: "Unified inbox for email, WhatsApp, and chat",
-    icon: <MessageSquare className="w-8 h-8" />,
-    price: "Pro",
-    category: "Collaboration",
-    features: [
-      "WhatsApp integration",
-      "Website chat widget",
-      "Auto-reply bot",
-      "Conversation history",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "video",
-    name: "Video Calls",
-    description: "Built-in video conferencing with screen sharing",
-    icon: <Video className="w-8 h-8" />,
-    price: "Pro",
-    category: "Collaboration",
-    features: [
-      "HD video calls",
-      "Screen sharing",
-      "Call recording",
-      "Calendar integration",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "files",
-    name: "File Sharing",
-    description: "Centralized file storage with version control",
-    icon: <FolderOpen className="w-8 h-8" />,
-    price: "Pro",
-    category: "Collaboration",
-    features: [
-      "File upload & organization",
-      "Version history",
-      "Share links with expiration",
-      "Approval workflow",
-    ],
-    status: "coming_soon",
-  },
-  {
-    id: "ai",
-    name: "AI Summary",
-    description: "AI-powered meeting summaries and action items",
-    icon: <Zap className="w-8 h-8" />,
-    price: "Pro",
-    category: "Collaboration",
-    features: [
-      "Meeting transcription",
-      "AI-generated summaries",
-      "Action item extraction",
-      "Send summary to client",
-    ],
-    status: "coming_soon",
-  },
-];
+  const getAppDescription = (appId: string) => {
+    const app = getApp(appId);
+    return app?.description || "";
+  };
+
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-xl border transition-all ${
+      isInstalled
+        ? "border-green-500/50 shadow-green-100 dark:shadow-green-900/20 shadow-lg"
+        : "border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600"
+    }`}>
+      {/* Header */}
+      <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex items-start gap-4">
+          <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
+            isInstalled
+              ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+              : "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
+          }`}>
+            {packageIconMap[pkg.id] || <Package className="w-10 h-10" />}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                {pkg.name}
+              </h3>
+              {isInstalled && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                  Installed
+                </span>
+              )}
+              {pkg.isCore && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
+                  Core
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {pkg.description}
+            </p>
+            <span className={`inline-block mt-2 px-2 py-0.5 text-xs font-medium rounded ${
+              pkg.tier === "starter"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                : pkg.tier === "growing"
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                : "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
+            }`}>
+              {pkg.tier.charAt(0).toUpperCase() + pkg.tier.slice(1)} Tier
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-6">
+        {/* Core Apps */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Check className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Core Apps (auto-installed)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 ml-6">
+            {pkg.coreApps.map(appId => (
+              <span
+                key={appId}
+                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm rounded-lg flex items-center gap-1.5"
+              >
+                {iconMap[appId] || <Package className="w-4 h-4" />}
+                {getAppName(appId)}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Optional Apps */}
+        {pkg.optionalApps.length > 0 && (
+          <div>
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 mb-2"
+            >
+              <span>Optional Apps ({pkg.optionalApps.length})</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${showDetails ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showDetails && (
+              <div className="space-y-2 mt-2 ml-6">
+                {pkg.optionalApps.map(appId => {
+                  const app = getApp(appId);
+                  const isSelected = selectedOptionalApps.includes(appId);
+                  const isInstalled = installedApps.includes(appId);
+
+                  return (
+                    <div
+                      key={appId}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        isInstalled
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                          : isSelected
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800"
+                          : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            isInstalled
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-600"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+                          }`}>
+                            {iconMap[appId] || <Package className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {getAppName(appId)}
+                            </p>
+                            {app?.description && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {app.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isInstalled ? (
+                            <span className="px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
+                              Active
+                            </span>
+                          ) : isSelected ? (
+                            <button
+                              onClick={() => toggleOptionalApp(appId)}
+                              className="px-2 py-1 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded hover:bg-indigo-200 dark:hover:bg-indigo-900/50"
+                            >
+                              Selected
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => toggleOptionalApp(appId)}
+                              className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {isInstalled ? (
+                <span>{installedApps.filter(id => pkg.coreApps.includes(id) || pkg.optionalApps.includes(id)).length} apps active</span>
+              ) : (
+                <span>Will install {pkg.coreApps.length + selectedOptionalApps.length} apps</span>
+              )}
+            </div>
+            {isInstalled ? (
+              pkg.isCore ? (
+                <span className="px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg">
+                  Core Package
+                </span>
+              ) : (
+                <button
+                  onClick={() => onUninstall(pkg.id)}
+                  disabled={isUpdating}
+                  className="px-4 py-2 text-sm font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                >
+                  {isUpdating ? "Uninstalling..." : "Uninstall"}
+                </button>
+              )
+            ) : (
+              <button
+                onClick={() => onInstall(pkg.id, selectedOptionalApps)}
+                disabled={isUpdating}
+                className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isUpdating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Installing...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4" />
+                    Install Package
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AppStorePage() {
   const { data: session, status } = useSession();
-  const [installedApps, setInstalledApps] = useState<string[]>([]);
-  const [installing, setInstalling] = useState<string | null>(null);
+  const [installedState, setInstalledState] = useState<{
+    packages: string[];
+    apps: string[];
+  }>({ packages: [], apps: [] });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const [updatingPackage, setUpdatingPackage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Fetch installed apps on mount
   useEffect(() => {
-    async function fetchInstalledApps() {
-      try {
-        const res = await fetch("/api/organization/apps");
-        if (res.ok) {
-          const data = await res.json();
-          setInstalledApps(data.apps || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch installed apps:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    if (status === "authenticated") {
-      fetchInstalledApps();
-    }
-  }, [status]);
+    fetchInstalledState();
+  }, []);
 
-  // Check if user is owner
+  const fetchInstalledState = async () => {
+    try {
+      const res = await fetch("/api/apps");
+      if (res.ok) {
+        const data = await res.json();
+        setInstalledState({
+          packages: data.packages || [],
+          apps: data.apps || [],
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching installed state:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInstall = async (packageId: string, optionalApps: string[]) => {
+    setUpdatingPackage(packageId);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/apps", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId, optionalApps }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setInstalledState({
+          packages: data.packages,
+          apps: data.apps,
+        });
+        const pkg = PACKAGES.find(p => p.id === packageId);
+        setMessage({ type: "success", text: `${pkg?.name || packageId} installed successfully!` });
+      } else {
+        const error = await res.json();
+        setMessage({ type: "error", text: error.message || "Failed to install package" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to install package" });
+    } finally {
+      setUpdatingPackage(null);
+    }
+  };
+
+  const handleUninstall = async (packageId: string) => {
+    if (!confirm("Are you sure you want to uninstall this package? All associated apps will be removed.")) {
+      return;
+    }
+
+    setUpdatingPackage(packageId);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/apps", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setInstalledState({
+          packages: data.packages,
+          apps: data.apps,
+        });
+        const pkg = PACKAGES.find(p => p.id === packageId);
+        setMessage({ type: "success", text: `${pkg?.name || packageId} uninstalled successfully!` });
+      } else {
+        const error = await res.json();
+        setMessage({ type: "error", text: error.message || "Failed to uninstall package" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to uninstall package" });
+    } finally {
+      setUpdatingPackage(null);
+    }
+  };
+
   if (loading || status === "loading") {
     return (
       <div className="flex items-center justify-center h-64">
@@ -439,243 +424,101 @@ export default function AppStorePage() {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Lock className="w-12 h-12 text-gray-400 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-        <p className="text-gray-500">Only workspace owners can install apps</p>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Access Restricted</h2>
+        <p className="text-gray-500 dark:text-gray-400">Only workspace owners can manage apps</p>
       </div>
     );
   }
 
-  const handleInstall = async (appId: string) => {
-    setInstalling(appId);
-    try {
-      const res = await fetch("/api/organization/apps", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appId, action: "install" }),
-      });
-
-      if (res.ok) {
-        setInstalledApps(prev => [...prev, appId]);
-      }
-    } catch (error) {
-      console.error("Install failed:", error);
-    } finally {
-      setInstalling(null);
-    }
-  };
-
-  const handleUninstall = async (appId: string) => {
-    setInstalling(appId);
-    try {
-      const res = await fetch("/api/organization/apps", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appId, action: "uninstall" }),
-      });
-
-      if (res.ok) {
-        setInstalledApps(prev => prev.filter(id => id !== appId));
-      }
-    } catch (error) {
-      console.error("Uninstall failed:", error);
-    } finally {
-      setInstalling(null);
-    }
-  };
-
-  const availableApps = AVAILABLE_APPS.filter(a => a.status === "available");
-  const comingSoonApps = AVAILABLE_APPS.filter(a => a.status === "coming_soon");
-
-  const filteredApps = activeTab === "available" 
-    ? availableApps 
-    : activeTab === "coming_soon" 
-      ? comingSoonApps 
-      : AVAILABLE_APPS;
+  const corePackages = PACKAGES.filter(p => p.isCore);
+  const optionalPackages = PACKAGES.filter(p => !p.isCore);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <ShoppingCart className="w-8 h-8 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">App Store</h1>
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <ShoppingCart className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">App Store</h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Extend your workspace with packages and apps
+            </p>
+          </div>
         </div>
-        <p className="text-gray-600">
-          Extend your workspace with additional modules. Install free modules or upgrade for pro features.
-        </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === "all"
-              ? "bg-blue-600 text-white"
-              : "bg-white text-gray-700 border hover:bg-gray-50"
-          }`}
-        >
-          All Modules
-        </button>
-        <button
-          onClick={() => setActiveTab("available")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === "available"
-              ? "bg-blue-600 text-white"
-              : "bg-white text-gray-700 border hover:bg-gray-50"
-          }`}
-        >
-          Available ({availableApps.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("coming_soon")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === "coming_soon"
-              ? "bg-blue-600 text-white"
-              : "bg-white text-gray-700 border hover:bg-gray-50"
-          }`}
-        >
-          Coming Soon ({comingSoonApps.length})
-        </button>
+      {/* Message */}
+      {message && (
+        <div className={`mb-6 p-4 rounded-lg ${
+          message.type === "success"
+            ? "bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-400 border border-green-200 dark:border-green-800"
+            : "bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-400 border border-red-200 dark:border-red-800"
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Core Packages */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <Package className="w-5 h-5 text-blue-500" />
+          Core Packages
+          <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(Always installed)</span>
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {corePackages.map(pkg => (
+            <PackageCard
+              key={pkg.id}
+              pkg={pkg}
+              isInstalled={installedState.packages.includes(pkg.id)}
+              installedApps={installedState.apps}
+              onInstall={handleInstall}
+              onUninstall={handleUninstall}
+              isUpdating={updatingPackage === pkg.id}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Available Modules */}
-      {activeTab !== "coming_soon" && (
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Modules</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredApps.filter(a => a.status === "available").map((app) => (
-              <AppCard
-                key={app.id}
-                app={app}
-                isInstalled={installedApps.includes(app.id)}
-                isInstalling={installing === app.id}
-                onInstall={() => handleInstall(app.id)}
-                onUninstall={() => handleUninstall(app.id)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Coming Soon Modules */}
-      {activeTab !== "available" && (
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Coming Soon</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredApps.filter(a => a.status === "coming_soon").map((app) => (
-              <AppCard
-                key={app.id}
-                app={app}
-                isInstalled={installedApps.includes(app.id)}
-                isInstalling={installing === app.id}
-                onInstall={() => handleInstall(app.id)}
-                onUninstall={() => handleUninstall(app.id)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Optional Packages */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-purple-500" />
+          Available Packages
+          <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(Install to add more features)</span>
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {optionalPackages.map(pkg => (
+            <PackageCard
+              key={pkg.id}
+              pkg={pkg}
+              isInstalled={installedState.packages.includes(pkg.id)}
+              installedApps={installedState.apps}
+              onInstall={handleInstall}
+              onUninstall={handleUninstall}
+              isUpdating={updatingPackage === pkg.id}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className="font-medium text-blue-900 mb-2">💡 How it works</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• <strong>Free modules</strong> are available for all workspace owners</li>
-          <li>• <strong>Pro modules</strong> require subscription for advanced features</li>
-          <li>• <strong>Coming Soon</strong> modules show what&apos;s planned for future releases</li>
-          <li>• Installed apps appear in your sidebar navigation</li>
-          <li>• You can remove apps anytime without losing your data</li>
+      <div className="mt-8 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
+        <h3 className="font-medium text-indigo-900 dark:text-indigo-300 mb-2 flex items-center gap-2">
+          <Zap className="w-4 h-4" />
+          How it works
+        </h3>
+        <ul className="text-sm text-indigo-800 dark:text-indigo-400 space-y-1">
+          <li>• <strong>Core packages</strong> are automatically installed and cannot be removed</li>
+          <li>• <strong>Optional packages</strong> can be installed to add business or advanced features</li>
+          <li>• When installing a package, <strong>core apps</strong> are automatically included</li>
+          <li>• You can choose which <strong>optional apps</strong> to enable</li>
+          <li>• Uninstalling a package removes all associated apps (data is preserved)</li>
         </ul>
       </div>
-    </div>
-  );
-}
-
-// App Card Component
-function AppCard({
-  app,
-  isInstalled,
-  isInstalling,
-  onInstall,
-  onUninstall,
-}: {
-  app: App;
-  isInstalled: boolean;
-  isInstalling: boolean;
-  onInstall: () => void;
-  onUninstall: () => void;
-}) {
-  return (
-    <div className={`bg-white border rounded-xl p-5 transition-shadow ${
-      app.status === "coming_soon" 
-        ? "border-gray-200 opacity-75" 
-        : "hover:shadow-md border-gray-200"
-    }`}>
-      <div className="flex items-start justify-between mb-3">
-        <div className={`p-2 rounded-lg ${
-          app.status === "coming_soon" ? "bg-gray-100 text-gray-400" : "bg-blue-50 text-blue-600"
-        }`}>
-          {app.icon}
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-            isInstalled
-              ? "bg-green-100 text-green-700"
-              : app.status === "coming_soon"
-              ? "bg-amber-100 text-amber-700"
-              : app.price === "Free"
-              ? "bg-gray-100 text-gray-600"
-              : "bg-purple-100 text-purple-700"
-          }`}>
-            {isInstalled ? "Installed" : app.status === "coming_soon" ? "Coming Soon" : app.price}
-          </span>
-          {app.status === "coming_soon" && (
-            <span className="flex items-center gap-1 text-xs text-gray-500">
-              <Clock className="w-3 h-3" />
-              Planned
-            </span>
-          )}
-        </div>
-      </div>
-
-      <h3 className="text-lg font-semibold text-gray-900 mb-1">{app.name}</h3>
-      <p className="text-sm text-gray-500 mb-3">{app.description}</p>
-
-      <ul className="text-sm text-gray-600 mb-4 space-y-1">
-        {app.features.slice(0, 3).map((feature, i) => (
-          <li key={i} className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-green-500" />
-            {feature}
-          </li>
-        ))}
-      </ul>
-
-      {isInstalled ? (
-        <button
-          onClick={onUninstall}
-          disabled={isInstalling || app.status === "coming_soon"}
-          className="w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          {isInstalling ? "Removing..." : "Remove"}
-        </button>
-      ) : app.status === "coming_soon" ? (
-        <button
-          disabled
-          className="w-full py-2 px-4 bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <Clock className="w-4 h-4" />
-          Coming Soon
-        </button>
-      ) : (
-        <button
-          onClick={onInstall}
-          disabled={isInstalling}
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-        >
-          {isInstalling ? "Installing..." : "Install"}
-        </button>
-      )}
     </div>
   );
 }
