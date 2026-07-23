@@ -145,7 +145,7 @@ export async function PATCH(
     });
 
     // Log activity
-    const activityMap: Record<string, string> = {
+    const activityMap: Record<string, "ORDER_CONFIRMED" | "ORDER_COMPLETED" | "ORDER_CANCELLED"> = {
       CONFIRMED: "ORDER_CONFIRMED",
       COMPLETED: "ORDER_COMPLETED",
       CANCELLED: "ORDER_CANCELLED",
@@ -155,7 +155,7 @@ export async function PATCH(
     if (activityType) {
       await prisma.activityLog.create({
         data: {
-          type: activityType as any,
+          type: activityType,
           entityType: "Order",
           entityId: id,
           userId: session.user.id,

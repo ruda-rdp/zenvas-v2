@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -53,12 +53,26 @@ export default function SuperAdminPage() {
 
   const isSuperAdmin = session?.user?.email?.toLowerCase() === process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL?.toLowerCase();
 
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/superadmin/hierarchy");
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const data = await res.json();
+      setStats(data.stats);
+      setOrganizations(data.organizations || []);
+      setLoading(false);
+    } catch {
+      setError("Failed to load data");
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
       return;
     }
-    
+
     if (status === "authenticated" && !isSuperAdmin) {
       setError("Access denied. You are not a super admin.");
       setLoading(false);
@@ -68,28 +82,14 @@ export default function SuperAdminPage() {
     if (status === "authenticated" && isSuperAdmin) {
       fetchData();
     }
-  }, [status, isSuperAdmin, router]);
-
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/superadmin/hierarchy");
-      if (!res.ok) throw new Error("Failed to fetch data");
-      const data = await res.json();
-      setStats(data.stats);
-      setOrganizations(data.organizations || []);
-      setLoading(false);
-    } catch (err) {
-      setError("Failed to load data");
-      setLoading(false);
-    }
-  };
+  }, [status, isSuperAdmin, router, fetchData]);
 
   const fetchAllUsers = async () => {
     try {
       const res = await fetch("/api/superadmin/users");
       const data = await res.json();
       setAllUsers(data.users || []);
-    } catch (err) {
+    } catch {
       console.error("Failed to fetch users");
     }
   };
@@ -99,7 +99,7 @@ export default function SuperAdminPage() {
       const res = await fetch("/api/superadmin/brands");
       const data = await res.json();
       setAllBrands(data.brands || []);
-    } catch (err) {
+    } catch {
       console.error("Failed to fetch brands");
     }
   };
@@ -130,7 +130,7 @@ export default function SuperAdminPage() {
         const data = await res.json();
         alert(data.error || "Failed to delete user");
       }
-    } catch (err) {
+    } catch {
       alert("Failed to delete user");
     }
   };
@@ -147,7 +147,7 @@ export default function SuperAdminPage() {
         fetchAllUsers();
         setShowUserModal(false);
       }
-    } catch (err) {
+    } catch {
       alert("Failed to update role");
     }
   };
@@ -162,7 +162,7 @@ export default function SuperAdminPage() {
         const data = await res.json();
         alert(data.error || "Failed to delete organization");
       }
-    } catch (err) {
+    } catch {
       alert("Failed to delete organization");
     }
   };

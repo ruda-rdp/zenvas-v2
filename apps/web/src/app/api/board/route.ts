@@ -57,13 +57,17 @@ export async function GET(request: Request) {
     }
 
     // Build available tasks query (unassigned tasks from accessible brands)
+    // Supports both solo projects (project.brandId) and order-based projects (project.order.brandId)
     const availableWhere: Record<string, unknown> = {
       assigneeUserId: null, // Unassigned
       stage: {
         project: {
-          brandId: {
-            in: accessibleBrandIds,
-          },
+          OR: [
+            // Solo projects - direct brand association
+            { brandId: { in: accessibleBrandIds } },
+            // Order-based projects - brand is via the order
+            { order: { brandId: { in: accessibleBrandIds } } },
+          ],
         },
       },
       status: "OPEN", // Only show OPEN tasks for applying
@@ -134,6 +138,19 @@ export async function GET(request: Request) {
                     primaryColor: true,
                   },
                 },
+                // Include order for order-based projects
+                order: {
+                  select: {
+                    brandId: true,
+                    brand: {
+                      select: {
+                        id: true,
+                        name: true,
+                        primaryColor: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -151,14 +168,19 @@ export async function GET(request: Request) {
     });
 
     // Group tasks by brand for easier UI rendering
+    // Supports both solo projects (project.brandId) and order-based projects (project.order.brandId)
     const tasksByBrand = new Map<string, { brandId: string; brand: string; tasks: typeof availableTasks }>();
-    
+
     for (const task of availableTasks) {
-      const brandId = task.stage.project.brandId || "solo";
+      // Resolve brandId: check project.brandId first (solo), then project.order.brandId (order-based)
+      const project = task.stage.project;
+      const brandId = project.brandId ?? project.order?.brandId ?? "solo";
+      const brandName = project.brand?.name ?? project.order?.brand?.name ?? "Solo Project";
+
       if (!tasksByBrand.has(brandId)) {
         tasksByBrand.set(brandId, {
           brandId,
-          brand: task.stage.project.brand?.name || "Solo Project",
+          brand: brandName,
           tasks: [],
         });
       }
