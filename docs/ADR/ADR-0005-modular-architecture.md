@@ -1,11 +1,11 @@
-# ADR-0005: Modular Architecture - Business OS as Optional Plugin
+# ADR-0005: Modular Architecture - Paket & Apps System
 
 **Status:** Accepted
 **Date:** 2026-07-21
 **Replaces:** Part of ADR-0003 domain routing
 **Context:** CONTEXT.md (Updated)
 
-**Updated:** 2026-07-21 — Added Three-Phase roadmap
+**Updated:** 2026-07-23 — Refined terminology: Paket vs Apps distinction
 
 ---
 
@@ -28,6 +28,64 @@ Growing Creator (Dewa): Might have clients, but not website
 ├── "Hotel wants a video collaboration"
 ├── "I don't have studio.dewa.com yet"
 └── "Client prefers WhatsApp anyway"
+```
+
+---
+
+## Terminology: Paket vs Apps
+
+**CRITICAL DISTINCTION:**
+
+| Term | Definition | Example |
+|------|-----------|---------|
+| **Paket** | Bundle/package of related apps | Project OS, Human Capital OS, Business OS |
+| **Apps** | Individual tools within a paket | Scriptwriter, Storyboard, Attendance, Invoicing |
+| **Organization** | Tenant - installs paket | Jacob Film Studio |
+| **Brand** | Identity - belongs to organization | Jacob Film Studio brand |
+
+### Paket Breakdown
+
+```
+PAKET: Human Capital OS
+├── Attendance (clock in/out)
+├── Appraisals (performance review)
+├── Payroll (salary calculation)
+├── Wallet (payout tracking)
+└── Recruitment (hiring pipeline)
+
+PAKET: Business OS
+├── Client Portal (client-facing interface)
+├── Invoicing (create & send invoices)
+├── Subscription (recurring billing)
+├── Lead Management (pipeline)
+└── Odoo Sync (accounting integration)
+
+PAKET: Project OS
+├── Production Apps
+│   ├── Scriptwriter (screenplay writing)
+│   ├── Storyboard (visual planning)
+│   ├── Canvas (Milanote-like freeform board)
+│   ├── Cadrage (shot composition tool)
+│   ├── Shotlist (production breakdown)
+│   └── Call Sheets (daily schedule) [Production]
+├── Post Apps
+│   ├── Timeline Notes (editorial notes)
+│   ├── VFX Tracker (effects tracking)
+│   └── Color Reference (LUT management)
+└── Delivery Apps
+    ├── Review Links (client review)
+    ├── Deliverables (format specs)
+    └── Festival Tracker (submission)
+```
+
+### Organization Schema
+
+```typescript
+model Organization {
+  plan      String   @default("solo")  // solo | growing | agency
+  paket     String[] @default(["project-os", "human-capital-os"]) 
+  // apps are installed per-paket
+}
 ```
 
 ---

@@ -107,19 +107,73 @@ New → Active → On Hold → Completed
 | posterAspect | Enum | Yes | 16:9, 4:3, 1:1 |
 | orderId | UUID | No | Linked Order (optional) |
 
-## Stage Templates
+## Project Stages (4-Stage Architecture)
 
-### Simple Project
+Inspired by DaVinci Resolve's page-based workflow, each Project has 4 main stages:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Project Tabs (DaVinci Resolve Style)                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  [Overview] [Pre-Production] [Production] [Delivery]            │
+│     ↑                                                             │
+│  Tab navigation per production stage - like DaVinci Resolve      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Stage Overview
+
+| Stage | Description | Typical Duration | Apps Available |
+|-------|-------------|-----------------|---------------|
+| **Overview** | Project dashboard & summary | Always | Dashboard, Stats, Activity |
+| **Pre-Production** | Planning & creative prep | Weeks-Months | Scriptwriter, Storyboard, Canvas, Cadrage, Shotlist |
+| **Production** | Shooting & on-set | Days-Weeks | Call Sheets, Shot Logger, Daily Reports |
+| **Delivery** | Client review & final | Days | Review Links, Deliverables, Invoicing |
+
+### Pre-Production Apps (Focus for Jacob)
+
+```
+PRE-PRODUCTION APPS:
+├── 📝 Scriptwriter   - Screenplay writing (Celtx-level complexity)
+├── 🎨 Storyboard     - Visual planning, auto-detects scenes from script
+├── 🟨 Canvas        - Milanote-like freeform board
+├── 🎬 Cadrage       - Shot composition tool
+└── 📋 Shotlist      - Production breakdown
+```
+
+### Production Apps (Later)
+
+```
+PRODUCTION APPS:
+├── 📅 Call Sheets    - Daily schedule distribution
+├── 📹 Shot Logger    - Scene/take logging on set
+└── 📊 Daily Reports  - Progress tracking
+```
+
+### Delivery Apps (Later)
+
+```
+DELIVERY APPS:
+├── 🔗 Review Links   - Client video review
+├── 📦 Deliverables  - Format specs & tracking
+└── 📮 Festival      - Submission tracker
+```
+
+### Stage Template Defaults
+
+**Simple Project:**
 ```
 To Do → In Progress → Done
 ```
 
-### Client Project
+**Client Project:**
 ```
 Pre-Production → Production → Post-Production → Delivery
 ```
 
-### Film Production
+**Film Production:**
 ```
 Development → Pre-Production → Production → Post-Production → Marketing → Delivery
 ```
