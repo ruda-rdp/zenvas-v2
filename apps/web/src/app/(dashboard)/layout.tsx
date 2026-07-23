@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { NotificationBell } from "@/components/NotificationBell";
+import GlobalChatWrapper from "@/components/chat/GlobalChatWrapper";
 
 export default async function DashboardLayout({
   children,
@@ -46,6 +47,9 @@ export default async function DashboardLayout({
           {children}
         </main>
       </div>
+      
+      {/* Global Chat */}
+      <GlobalChatWrapper />
     </div>
   );
 }

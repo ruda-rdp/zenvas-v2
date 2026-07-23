@@ -22,6 +22,7 @@ import {
   FileText,
   Wallet,
   ShoppingCart,
+  MessageSquare,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -50,6 +51,7 @@ const navigation: NavItem[] = [
   { name: "Projects", href: "/projects", icon: FolderKanban },
   { name: "Board", href: "/board", icon: Target, roles: ["EDITOR"] }, // Task board for editors
   { name: "Team", href: "/team", icon: Users },
+  { name: "Messages", href: "/chat", icon: MessageSquare },
 
   // Business modules - Only shown if business-os package is installed
   { name: "Clients", href: "/clients", icon: Building2, roles: ["OWNER"], requiresPackage: "business-os", requiresApp: "clients" },

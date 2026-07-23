@@ -72,6 +72,7 @@ model Brand {
   leads          Lead[]
   brandAccess    BrandAccess[]
   projects       Project[]    // Solo projects without orders
+  chatChannels   ChatChannel[] // Global chat channels
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -281,7 +282,7 @@ model Project {
   storyboardUrls String[] // URLs to storyboard images
 
   stages    Stage[]
-  chats     ProjectChat[] // Jacob: Live chat messages
+  chatChannels ChatChannel[] // Global chat channels
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -460,8 +461,9 @@ model User {
   withdrawals     WithdrawalRequest[]
   notifications   Notification[]
   
-  // Jacob: Chat and comments
-  projectChats    ProjectChat[]
+  // Chat channels and messages
+  chatChannels    ChatChannelParticipant[]
+  chatMessages    ChatMessage[]
   taskComments    TaskComment[]
   
   createdAt       DateTime       @default(now())
@@ -601,31 +603,108 @@ model ActivityLog {
   @@index([createdAt])
 }
 
-// ── PROJECT CHAT (Jacob Feature - Live Chat) ───────────────────
+// ── CHAT CHANNELS (Global Live Chat - Odoo Style) ───────────────────
 
-model ProjectChat {
+enum ChatChannelType {
+  GENERAL      // Organization-wide general channel
+  TEAM         // Team-specific channel
+  PROJECT      // Project-scoped channel (auto-created)
+  DIRECT       // 1:1 Direct Message
+}
+
+model ChatChannel {
   id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String   // "General", "Project: Villa Edit", or user pair names
+  
+  type      ChatChannelType @default(GENERAL)
+  
+  // Optional associations
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  brandId   String?
+  brand     Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  // For DM channels - store participant IDs
+  participantIds String[] @default([]) // Array of user IDs for DM channels
+  
+  // Channel avatar/icon
+  avatarUrl  String?
+  
+  // Participants
+  participants ChatChannelParticipant[]
+  
+  // Messages
+  messages   ChatMessage[]
+  
+  // Metadata
+  createdById String?
+  isActive   Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([projectId])
+  @@index([brandId])
+  @@index([createdAt])
+}
+
+model ChatChannelParticipant {
+  id        String @id @default(cuid())
+  channelId String
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  
+  // Notification tracking
+  lastReadAt   DateTime?
+  unreadCount  Int      @default(0)
+  
+  // Role in channel
+  role        String   @default("member") // "owner", "admin", "member"
+  
+  // Notification preferences
+  notifyMention Boolean @default(true)
+  notifyMessage Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([channelId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   
-  content   String   // Message content
-  mentions  String[] // Array of user IDs mentioned with @
+  content   String   // Message content with @mentions
   
-  // For threaded replies
+  // Mentions - stored as structured array
+  mentions  Json     @default("[]") // Array of {id, name} objects
+  
+  // Thread support
   parentId  String?
-  parent    ProjectChat? @relation("ChatReplies", fields: [parentId], references: [id])
-  replies   ProjectChat[] @relation("ChatReplies")
+  parent    ChatMessage? @relation("MessageReplies", fields: [parentId], references: [id])
+  replies   ChatMessage[] @relation("MessageReplies")
+  replyCount Int    @default(0)
   
-  // Soft delete
+  // Reactions (Phase 2)
+  reactions Json    @default("[]") // Array of {emoji, userIds}
+  
+  // Status
+  isSystem  Boolean @default(false) // Auto-messages
   deletedAt DateTime?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([projectId])
+  @@index([channelId])
   @@index([userId])
   @@index([parentId])
   @@index([createdAt])

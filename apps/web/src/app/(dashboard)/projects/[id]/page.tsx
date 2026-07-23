@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import TasksManagerView from "@/components/tasks/TasksManagerView";
-import ChatWidget from "@/components/chat/ChatWidget";
 
 // Dynamic import for GanttChart to avoid SSR issues
 const GanttChart = dynamic(() => import("@/components/gantt/GanttChart"), {
@@ -406,9 +405,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           getCategoryBadge={getCategoryBadge}
         />
       ) : null}
-
-      {/* Chat Widget for collaboration */}
-      <ChatWidget projectId={project.id} />
 
       {/* Task Details Modal */}
       {showTaskModal && selectedTask && (

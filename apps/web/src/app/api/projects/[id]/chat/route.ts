@@ -1,6 +1,7 @@
 /**
  * API: /api/projects/[id]/chat
- * Project Chat - Live chat messages for Jacob's collaboration
+ * Project Chat - Uses the new global chat system
+ * Creates/retrieves a PROJECT channel for the project
  */
 
 import { NextResponse } from "next/server";
@@ -8,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { canAccessBrand } from "@/lib/authorize";
 
-// GET /api/projects/[id]/chat - Get chat messages
+// GET /api/projects/[id]/chat - Get chat messages for this project
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -22,13 +23,14 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const limit = Math.min(50, parseInt(searchParams.get("limit") || "50"));
-    const before = searchParams.get("before"); // For pagination
+    const before = searchParams.get("before");
 
     // Get project and verify access
     const project = await prisma.project.findUnique({
       where: { id },
       select: { 
         id: true, 
+        name: true,
         brandId: true,
         order: { select: { brandId: true } }
       },
@@ -47,18 +49,46 @@ export async function GET(
       }
     }
 
+    // Find or create a PROJECT channel for this project
+    let channel = await prisma.chatChannel.findFirst({
+      where: {
+        type: "PROJECT",
+        projectId: id,
+        participants: {
+          some: { userId: session.user.id! },
+        },
+      },
+    });
+
+    if (!channel) {
+      // Create a new project channel
+      channel = await prisma.chatChannel.create({
+        data: {
+          name: project.name || `Project ${id.slice(0, 8)}`,
+          type: "PROJECT",
+          projectId: id,
+          participants: {
+            create: {
+              userId: session.user.id!,
+              role: "ADMIN",
+            },
+          },
+        },
+      });
+    }
+
     // Get messages
     const whereClause: Record<string, unknown> = {
-      projectId: id,
+      channelId: channel.id,
       deletedAt: null,
-      parentId: null, // Only top-level messages
+      parentId: null,
     };
 
     if (before) {
       whereClause.createdAt = { lt: new Date(before) };
     }
 
-    const messages = await prisma.projectChat.findMany({
+    const messages = await prisma.chatMessage.findMany({
       where: whereClause,
       include: {
         user: {
@@ -78,7 +108,14 @@ export async function GET(
       take: limit,
     });
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({ 
+      messages,
+      channel: {
+        id: channel.id,
+        name: channel.name,
+        type: channel.type,
+      }
+    });
   } catch (error) {
     console.error("Error fetching chat messages:", error);
     return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
@@ -109,6 +146,7 @@ export async function POST(
       where: { id },
       select: { 
         id: true, 
+        name: true,
         brandId: true,
         order: { select: { brandId: true } }
       },
@@ -127,26 +165,40 @@ export async function POST(
       }
     }
 
-    // If replying to a message, verify parent exists
-    if (parentId) {
-      const parent = await prisma.projectChat.findUnique({
-        where: { id: parentId },
+    // Find or create a PROJECT channel for this project
+    let channel = await prisma.chatChannel.findFirst({
+      where: {
+        type: "PROJECT",
+        projectId: id,
+        participants: {
+          some: { userId: session.user.id! },
+        },
+      },
+    });
+
+    if (!channel) {
+      channel = await prisma.chatChannel.create({
+        data: {
+          name: project.name || `Project ${id.slice(0, 8)}`,
+          type: "PROJECT",
+          projectId: id,
+          participants: {
+            create: {
+              userId: session.user.id!,
+              role: "ADMIN",
+            },
+          },
+        },
       });
-      if (!parent || parent.projectId !== id) {
-        return NextResponse.json({ error: "Parent message not found" }, { status: 404 });
-      }
     }
 
-    // Parse mentions from content (@userId)
-    const extractedMentions = mentions || [];
-    
     // Create the message
-    const message = await prisma.projectChat.create({
+    const message = await prisma.chatMessage.create({
       data: {
-        projectId: id,
+        channelId: channel.id,
         userId: session.user.id,
         content: content.trim(),
-        mentions: extractedMentions,
+        mentions: mentions || [],
         parentId: parentId || null,
       },
       include: {
@@ -156,14 +208,20 @@ export async function POST(
       },
     });
 
+    // Update channel timestamp
+    await prisma.chatChannel.update({
+      where: { id: channel.id },
+      data: { updatedAt: new Date() },
+    });
+
     // Create notifications for mentioned users
-    if (extractedMentions.length > 0) {
+    if (mentions && mentions.length > 0) {
       await prisma.notification.createMany({
-        data: extractedMentions.map((userId: string) => ({
+        data: mentions.map((userId: string) => ({
           userId,
           type: "SYSTEM" as const,
           title: "You were mentioned",
-          message: `${session.user.name} mentioned you in a chat`,
+          message: `${session.user.name} mentioned you in ${project.name || "a project"}`,
           link: `/projects/${id}`,
         })),
         skipDuplicates: true,
