@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isSuperAdmin } from "@/lib/superadmin";
-import { Role } from "@/generated/prisma";
+import { Role, EmploymentType } from "@/generated/prisma";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -119,6 +119,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
+    // Validate employmentType
+    const validEmploymentTypes: EmploymentType[] = ["FREELANCE", "INHOUSE"];
+    if (employmentType && !validEmploymentTypes.includes(employmentType)) {
+      return NextResponse.json(
+        { error: "Invalid employmentType. Must be FREELANCE or INHOUSE" },
+        { status: 400 }
+      );
+    }
+
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -150,7 +159,7 @@ export async function POST(request: Request) {
         email,
         role: role || "EDITOR",
         organizationId,
-        employmentType: employmentType || "FULL_TIME",
+        employmentType: employmentType || EmploymentType.FREELANCE,
         isActive: true,
       },
       select: {
