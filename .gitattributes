@@ -1,0 +1,13 @@
+# Normalisasi: semua file teks LF di repo & working tree
+* text=auto eol=lf
+
+# File biner — jangan pernah diutak-atik line-ending-nya
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
