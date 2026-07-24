@@ -516,24 +516,71 @@ function CreateProjectModal({ onClose, onCreated }: { onClose: () => void; onCre
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Show immediate preview using FileReader
     const reader = new FileReader();
     reader.onload = (ev) => setPosterPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
 
     setUploading(true);
     try {
-      const base64 = await fileToBase64(file);
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file: base64, filename: file.name, type: file.type }),
+      // Step 1: Get presigned upload URL from server
+      const urlParams = new URLSearchParams({
+        filename: file.name,
+        type: file.type,
+        size: file.size.toString(),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setPosterUrl(data.url);
+
+      const presignRes = await fetch(`/api/upload?${urlParams}`, {
+        method: "GET",
+      });
+
+      if (!presignRes.ok) {
+        const error = await presignRes.json();
+        if (presignRes.status === 503) {
+          // Storage not configured - use legacy base64 upload
+          const base64 = await fileToBase64(file);
+          const legacyRes = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              file: base64,
+              filename: file.name,
+              type: file.type,
+            }),
+          });
+          if (legacyRes.ok) {
+            const data = await legacyRes.json();
+            setPosterUrl(data.url);
+          }
+          return;
+        }
+        throw new Error(error.error || "Failed to get upload URL");
       }
+
+      const { presignedUrl, publicUrl } = await presignRes.json();
+
+      // Step 2: Upload file directly to storage using presigned URL
+      const uploadRes = await fetch(presignedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Failed to upload file to storage");
+      }
+
+      // Step 3: Use the public URL to save in database
+      setPosterUrl(publicUrl);
     } catch (error) {
       console.error("Error uploading:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload file. Please try again."
+      );
     } finally {
       setUploading(false);
     }
