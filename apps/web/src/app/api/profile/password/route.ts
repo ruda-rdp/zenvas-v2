@@ -4,47 +4,50 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireUser } from "@/lib/authorize";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { ChangePasswordSchema, createValidationErrorResponse } from "@/lib/validation";
 
 const SALT_ROUNDS = 12;
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
+
+  // Validate input with Zod
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
   }
 
+  const parsed = ChangePasswordSchema.safeParse(body);
+  if (!parsed.success) {
+    return createValidationErrorResponse(parsed.error);
+  }
+
+  const { currentPassword, newPassword } = parsed.data;
+
   try {
-    const body = await request.json();
-    const { currentPassword, newPassword } = body;
-
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json(
-        { error: "Current password and new password are required" },
-        { status: 400 }
-      );
-    }
-
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { error: "New password must be at least 6 characters" },
-        { status: 400 }
-      );
-    }
-
     // Get current user with password
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const userRecord = await prisma.user.findUnique({
+      where: { id: user.id },
     });
 
-    if (!user?.passwordHash) {
+    if (!userRecord?.passwordHash) {
       return NextResponse.json({ error: "No password set" }, { status: 400 });
     }
 
     // Verify current password
-    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    const isValid = await bcrypt.compare(currentPassword, userRecord.passwordHash);
     if (!isValid) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
     }
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
 
     // Update password
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: { passwordHash: newPasswordHash },
     });
 

@@ -11,7 +11,6 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   requireUser,
@@ -21,6 +20,7 @@ import {
   canAccessBrand,
 } from "@/lib/authorize";
 import { LeadStatus } from "@/generated/prisma";
+import { CreateLeadSchema, createValidationErrorResponse } from "@/lib/validation";
 
 // GET /api/leads - List all leads for user's accessible brands
 export async function GET(request: Request) {
@@ -94,54 +94,49 @@ export async function POST(request: Request) {
   const actionResult = await requireAction(user, "write:leads");
   if (!actionResult.success) return actionResult.response;
 
+  // Validate input with Zod
+  let body: unknown;
   try {
-    const body = await request.json();
-    const {
-      name,
-      email,
-      phone,
-      company,
-      source,
-      sourceDetails,
-      interest,
-      budget,
-      timeline,
-      tags,
-      brandId,
-      assignedTo,
-    } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
 
-    if (!name || !source || !interest || !brandId) {
-      return NextResponse.json(
-        { error: "Name, source, interest, and brandId are required" },
-        { status: 400 }
-      );
-    }
+  const parsed = CreateLeadSchema.safeParse(body);
+  if (!parsed.success) {
+    return createValidationErrorResponse(parsed.error);
+  }
 
-    // Check brand access using centralized helper
-    const hasAccess = await canAccessBrand(brandId);
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "You don't have access to this brand" },
-        { status: 403 }
-      );
-    }
+  const { brandId, ...leadData } = parsed.data;
 
+  // Check brand access using centralized helper
+  const hasAccess = await canAccessBrand(brandId);
+  if (!hasAccess) {
+    return NextResponse.json(
+      { error: "You don't have access to this brand" },
+      { status: 403 }
+    );
+  }
+
+  try {
     const lead = await prisma.lead.create({
       data: {
-        name,
-        email,
-        phone,
-        company,
-        source,
-        sourceDetails,
-        interest,
-        budget,
-        timeline,
-        tags: tags || [],
+        name: leadData.name,
+        source: leadData.source as any,
+        interest: leadData.interest,
         brandId,
-        assignedTo,
         status: LeadStatus.NEW,
+        // Optional fields with fallbacks
+        email: leadData.email ?? null,
+        phone: leadData.phone ?? null,
+        company: leadData.company ?? null,
+        sourceDetails: leadData.sourceDetails ?? null,
+        budget: leadData.budget?.toString() ?? null,
+        timeline: leadData.timeline ?? null,
+        tags: leadData.tags ?? [],
       },
       include: {
         brand: {

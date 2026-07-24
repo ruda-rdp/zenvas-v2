@@ -19,6 +19,7 @@ import {
   canAccessBrand,
 } from "@/lib/authorize";
 import { syncClientToOdoo } from "@/lib/odoo";
+import { CreateClientSchema, createValidationErrorResponse } from "@/lib/validation";
 import type { Prisma } from "@/generated/prisma";
 
 // GET /api/clients - List all clients for user's accessible brands
@@ -120,47 +121,55 @@ export async function POST(request: Request) {
   const actionResult = await requireAction(user, "write:clients");
   if (!actionResult.success) return actionResult.response;
 
+  // Validate input with Zod
+  let body: unknown;
   try {
-    const body = await request.json();
-    const { name, email, phone, brandId } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
 
-    if (!name || !email || !brandId) {
-      return NextResponse.json(
-        { error: "Name, email, and brandId are required" },
-        { status: 400 }
-      );
-    }
+  const parsed = CreateClientSchema.safeParse(body);
+  if (!parsed.success) {
+    return createValidationErrorResponse(parsed.error);
+  }
 
-    // Check brand access using centralized helper
-    const hasAccess = await canAccessBrand(brandId);
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "You don't have access to this brand" },
-        { status: 403 }
-      );
-    }
+  const { brandId, ...clientData } = parsed.data;
 
-    // Check if client already exists for this brand+email
-    const existingClient = await prisma.client.findFirst({
-      where: {
-        brandId,
-        email,
-      },
-    });
+  // Check brand access using centralized helper
+  const hasAccess = await canAccessBrand(brandId);
+  if (!hasAccess) {
+    return NextResponse.json(
+      { error: "You don't have access to this brand" },
+      { status: 403 }
+    );
+  }
 
-    if (existingClient) {
-      return NextResponse.json(
-        { error: "Client with this email already exists in this brand" },
-        { status: 400 }
-      );
-    }
+  // Check if client already exists for this brand+email
+  const existingClient = await prisma.client.findFirst({
+    where: {
+      brandId,
+      email: clientData.email,
+    },
+  });
 
+  if (existingClient) {
+    return NextResponse.json(
+      { error: "Client with this email already exists in this brand" },
+      { status: 400 }
+    );
+  }
+
+  try {
     // Create client
     const client = await prisma.client.create({
       data: {
-        name,
-        email,
-        phone: phone || null,
+        name: clientData.name,
+        email: clientData.email,
+        phone: clientData.phone ?? null,
         brandId,
       },
       include: {
@@ -192,7 +201,7 @@ export async function POST(request: Request) {
         entityType: "Client",
         entityId: client.id,
         userId: user.id,
-        metadata: { action: "client_created", name, email },
+        metadata: { action: "client_created", name: clientData.name, email: clientData.email },
       },
     });
 

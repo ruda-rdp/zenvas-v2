@@ -2,28 +2,30 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Role, EmploymentType } from "@/generated/prisma";
 import bcrypt from "bcryptjs";
+import { RegisterSchema, createValidationErrorResponse } from "@/lib/validation";
 
 const SALT_ROUNDS = 12;
 
 export async function POST(request: Request) {
+  // Validate input with Zod
+  let body: unknown;
   try {
-    const body = await request.json();
-    const { name, email, password, inviteCode } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
 
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Name, email, and password are required" },
-        { status: 400 }
-      );
-    }
+  const parsed = RegisterSchema.safeParse(body);
+  if (!parsed.success) {
+    return createValidationErrorResponse(parsed.error);
+  }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
-        { status: 400 }
-      );
-    }
+  const { name, email, password, inviteCode } = parsed.data;
 
+  try {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
