@@ -1,14 +1,22 @@
 /**
  * Rate Limiting Middleware
- * 
- * Protects auth endpoints from brute force attacks
- * Uses in-memory store (use Redis for production scaling)
+ *
+ * Protects auth endpoints from brute force attacks.
+ *
+ * NOTE: This store is in-memory (per-instance). It will NOT work correctly
+ * in multi-instance deployments (e.g., serverless, Kubernetes replicas).
+ * This is NOT a replacement for account-level lockout (already implemented
+ * in auth.ts authorize function). Will be replaced with persistent store
+ * (Redis/DB) in ISSUE-10.
  */
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Simple in-memory rate limiter (use Redis in production)
+// NOTE: In-memory store is per-process. In serverless/multi-instance deployments,
+// each instance has its own independent store. This provides per-IP rate limiting
+// only within a single instance. For true distributed rate limiting, use Redis
+// or a database-backed store (see ISSUE-10).
 const rateLimitStore = new Map<string, { count: number; timestamp: number }>();
 
 // Clean up old entries every minute
@@ -27,9 +35,9 @@ interface RateLimitConfig {
 }
 
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  "/api/auth/login": { windowMs: 60000, maxRequests: 5 }, // 5 attempts per minute
+  // NextAuth v5 credentials provider callback - actual login endpoint hit by signIn("credentials")
+  "/api/auth/callback/credentials": { windowMs: 60000, maxRequests: 5 }, // 5 attempts per minute
   "/api/auth/register": { windowMs: 60000, maxRequests: 3 }, // 3 registrations per minute
-  "/api/auth/client/login": { windowMs: 60000, maxRequests: 5 },
 };
 
 function getClientIP(request: NextRequest): string {
@@ -86,5 +94,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/auth/login", "/api/auth/register", "/api/auth/client/login"],
+  // NOTE: Next.js 16 middleware matcher supports literal paths and regex patterns.
+  // Using exact match (= prefix) for precise targeting of auth endpoints.
+  matcher: ["/api/auth/callback/credentials", "/api/auth/register"],
 };
