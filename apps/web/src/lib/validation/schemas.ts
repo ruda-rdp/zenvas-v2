@@ -36,7 +36,7 @@ export const RegisterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
   email: z.string().email("Invalid email format"),
   password: passwordSchema,
-  inviteCode: z.string().optional(),
+  inviteCode: z.string().optional().nullable(),
 });
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;

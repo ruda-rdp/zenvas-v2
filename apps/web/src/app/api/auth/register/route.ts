@@ -138,9 +138,31 @@ export async function POST(request: Request) {
       needsOnboarding: true, // First time user needs to create brand
     });
   } catch (error) {
-    console.error("Registration error:", error);
+    // Log detailed error for debugging
+    console.error("Registration error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+    });
+
+    // Return a more helpful error message based on error type
+    let errorMessage = "Registration failed";
+
+    if (error instanceof Error) {
+      // Prisma errors
+      if (error.message.includes("Unique constraint")) {
+        errorMessage = "An account with this email already exists";
+      } else if (error.message.includes("Foreign key constraint")) {
+        errorMessage = "Invalid organization or invite code";
+      } else if (error.message.includes("Connection refused") || error.message.includes("connect")) {
+        errorMessage = "Database connection error. Please try again.";
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again.";
+      }
+    }
+
     return NextResponse.json(
-      { error: "Registration failed" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

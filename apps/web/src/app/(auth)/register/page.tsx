@@ -30,8 +30,12 @@ function RegisterForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError("Password must contain at least one letter and one number");
       return;
     }
 
@@ -41,13 +45,21 @@ function RegisterForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, inviteCode }),
+        body: JSON.stringify({ name, email, password, inviteCode: inviteCode || undefined }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Registration failed");
+        // Show the specific reason(s) so the user isn't left guessing.
+        let msg: string = data.message || data.error || "Registration failed";
+        if (data.details && typeof data.details === "object") {
+          const parts = Object.entries(data.details).flatMap(([field, errs]) =>
+            Array.isArray(errs) ? (errs as string[]).map((e) => `• ${field}: ${e}`) : []
+          );
+          if (parts.length > 0) msg = parts.join("\n");
+        }
+        setError(msg);
       } else {
         // Auto sign in after registration
         await signIn("credentials", {
@@ -88,7 +100,7 @@ function RegisterForm() {
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm border border-red-200 dark:border-red-800">
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm border border-red-200 dark:border-red-800 whitespace-pre-line">
               {error}
             </div>
           )}

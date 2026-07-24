@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 interface PresenceStatus {
   [userId: string]: "online" | "away" | "offline";
@@ -24,8 +25,11 @@ export function usePresence() {
 
 export function PresenceProvider({ children }: { children: React.ReactNode }) {
   const [presence, setPresence] = useState<PresenceStatus>({});
+  const { status } = useSession();
+  const isAuthed = status === "authenticated";
 
   const refreshPresence = useCallback(async () => {
+    if (!isAuthed) return; // Don't hit the authenticated endpoint while logged out
     try {
       const res = await fetch("/api/team/heartbeat");
       if (res.ok) {
@@ -39,59 +43,33 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("Error fetching presence:", err);
     }
-  }, []);
+  }, [isAuthed]);
 
-  // Send heartbeat every 2 minutes to keep presence updated
   const sendHeartbeat = useCallback(async () => {
+    if (!isAuthed) return;
     try {
       await fetch("/api/team/heartbeat", { method: "POST" });
     } catch (err) {
       console.error("Error sending heartbeat:", err);
     }
-  }, []);
+  }, [isAuthed]);
 
   const isOnline = useCallback((userId: string) => {
     return presence[userId] === "online";
   }, [presence]);
 
-  // Initial fetch
+  // Initial fetch + heartbeat + polling only run while authenticated.
   useEffect(() => {
-    let ignore = false;
-
-    async function fetchPresence() {
-      try {
-        const res = await fetch("/api/team/heartbeat");
-        if (res.ok && !ignore) {
-          const data = await res.json();
-          const statusMap: PresenceStatus = {};
-          data.presence.forEach((p: { userId: string; status: "online" | "away" | "offline" }) => {
-            statusMap[p.userId] = p.status;
-          });
-          setPresence(statusMap);
-        }
-      } catch (err) {
-        if (!ignore) {
-          console.error("Error fetching presence:", err);
-        }
-      }
-    }
-
-    fetchPresence();
-    return () => { ignore = true; };
-  }, []);
-
-  // Send heartbeat every 2 minutes
-  useEffect(() => {
+    if (!isAuthed) return;
+    refreshPresence();
     sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [sendHeartbeat]);
-
-  // Refresh presence every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(refreshPresence, 30 * 1000);
-    return () => clearInterval(interval);
-  }, [refreshPresence]);
+    const heartbeatInterval = setInterval(sendHeartbeat, 2 * 60 * 1000);
+    const refreshInterval = setInterval(refreshPresence, 30 * 1000);
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(refreshInterval);
+    };
+  }, [isAuthed, refreshPresence, sendHeartbeat]);
 
   return (
     <PresenceContext.Provider value={{ presence, refreshPresence, isOnline }}>
