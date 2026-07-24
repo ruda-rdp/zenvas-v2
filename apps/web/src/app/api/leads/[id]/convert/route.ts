@@ -5,12 +5,13 @@
  * Per LEAD_MANAGEMENT.md:
  * - Lead → Qualified → Client
  * - Creates Client record + syncs to Odoo
+ *
+ * Authorization: Uses requireUser + requireAction(write:leads)
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canAccessBrand } from "@/lib/authorize";
+import { requireUser, requireAction, canAccessBrand } from "@/lib/authorize";
 import { syncClientToOdoo } from "@/lib/odoo";
 import { LeadStatus } from "@/generated/prisma";
 
@@ -18,14 +19,15 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction for permission checking
+  const actionResult = await requireAction(user, "write:leads");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const { id } = await params;
@@ -39,7 +41,7 @@ export async function POST(
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
     }
 
-    // Check brand access
+    // Check brand access using centralized helper
     const hasAccess = await canAccessBrand(lead.brandId);
     if (!hasAccess) {
       return NextResponse.json({ error: "You don't have access to this lead's brand" }, { status: 403 });
@@ -67,9 +69,9 @@ export async function POST(
         },
       });
 
-      return NextResponse.json({ 
-        client: existingClient, 
-        action: "linked_to_existing" 
+      return NextResponse.json({
+        client: existingClient,
+        action: "linked_to_existing"
       });
     }
 
@@ -111,7 +113,7 @@ export async function POST(
         type: "LEAD_CONVERTED",
         entityType: "Lead",
         entityId: id,
-        userId: session.user.id,
+        userId: user.id,
         metadata: { clientId: client.id },
       },
     });

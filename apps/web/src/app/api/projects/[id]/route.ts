@@ -1,21 +1,30 @@
 /**
  * API: /api/projects/[id]
  * Get, Update single project
+ *
+ * Authorization:
+ * - GET: Uses requireUser + brand access check + confidentiality
+ * - PATCH: Uses requireUser + requireAction(write:projects)
+ * - DELETE: Uses requireUser + requireAction(write:projects) + OWNER only
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canAccessBrand } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  canAccessBrand,
+} from "@/lib/authorize";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
     const { id } = await params;
@@ -64,11 +73,29 @@ export async function GET(
     if (brandId) {
       const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
-        return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
       }
     }
 
-    return NextResponse.json({ project });
+    // Apply confidentiality filtering for EDITORs
+    let safeProject = project;
+    if (user.role === "EDITOR") {
+      // For EDITORs, strip sensitive data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stripped = project as any;
+      stripped.order = undefined;
+      for (const stage of stripped.stages) {
+        for (const task of stage.tasks) {
+          task.payout = undefined;
+          for (const child of task.children || []) {
+            child.payout = undefined;
+          }
+        }
+      }
+      safeProject = stripped;
+    }
+
+    return NextResponse.json({ project: safeProject });
   } catch (error) {
     console.error("Error fetching project:", error);
     return NextResponse.json({ error: "Failed to fetch project" }, { status: 500 });
@@ -80,14 +107,15 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction for permission check
+  const actionResult = await requireAction(user, "write:projects");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const { id } = await params;
@@ -95,7 +123,7 @@ export async function PATCH(
     const { name, description, posterUrl, posterAspect } = body;
 
     // Check project exists with order include for brandId resolution
-    const existing = await prisma.project.findUnique({ 
+    const existing = await prisma.project.findUnique({
       where: { id },
       include: { order: { select: { brandId: true } } }
     });
@@ -108,7 +136,7 @@ export async function PATCH(
     if (brandId) {
       const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
-        return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
       }
     }
 
@@ -151,13 +179,18 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  // Only OWNER can delete
-  if (session.user.role !== "OWNER") {
+  const { user } = authResult;
+
+  // Only OWNER can delete - use requireAction with write:projects first
+  // then additional OWNER check
+  const actionResult = await requireAction(user, "write:projects");
+  if (!actionResult.success) return actionResult.response;
+
+  if (user.role !== "OWNER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -165,7 +198,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Check project exists with order include for brandId resolution
-    const existing = await prisma.project.findUnique({ 
+    const existing = await prisma.project.findUnique({
       where: { id },
       include: { order: { select: { brandId: true } } }
     });
@@ -178,7 +211,7 @@ export async function DELETE(
     if (brandId) {
       const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
-        return NextResponse.json({ error: "You don't have access to this project" }, { status: 403 });
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
       }
     }
 

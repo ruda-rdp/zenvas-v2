@@ -1,17 +1,25 @@
 /**
  * API: /api/orders/[id]
  * Order operations (Business OS)
- * 
+ *
  * Handles Order status transitions:
  * - DRAFT → CONFIRMED (DP received)
  * - CONFIRMED → IN_PROGRESS
  * - IN_PROGRESS → COMPLETED
+ *
+ * Authorization:
+ * - GET: Uses requireUser + brand access check
+ * - PATCH: Uses requireUser + requireAction(write:orders) + brand access
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canAccessBrand } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  stripConfidentialFields,
+  canAccessBrand,
+} from "@/lib/authorize";
 import { OrderStatus } from "@/generated/prisma";
 import { syncOrderDpInvoice, syncOrderFinalInvoice } from "@/lib/odoo";
 
@@ -20,14 +28,15 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
     const { id } = await params;
-    
+
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
@@ -51,7 +60,16 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ order });
+    // Check brand access - FIXED: was missing this check
+    const hasAccess = await canAccessBrand(order.brandId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Apply confidentiality filtering for EDITORs
+    const safeOrder = stripConfidentialFields(order, user.role);
+
+    return NextResponse.json({ order: safeOrder });
   } catch (error) {
     console.error("Error fetching order:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
@@ -63,14 +81,15 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction instead of manual role check
+  const actionResult = await requireAction(user, "write:orders");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const { id } = await params;
@@ -110,10 +129,10 @@ export async function PATCH(
 
     // Update order
     const updateData: Record<string, unknown> = { status };
-    
+
     if (status === OrderStatus.CONFIRMED) {
       updateData.confirmedAt = new Date();
-      
+
       // Sync DP Invoice to Odoo
       try {
         await syncOrderDpInvoice(id);
@@ -121,10 +140,10 @@ export async function PATCH(
         console.error("Odoo DP sync failed:", odooError);
       }
     }
-    
+
     if (status === OrderStatus.COMPLETED) {
       updateData.completedAt = new Date();
-      
+
       // Sync Final Invoice to Odoo
       try {
         await syncOrderFinalInvoice(id);
@@ -158,7 +177,7 @@ export async function PATCH(
           type: activityType,
           entityType: "Order",
           entityId: id,
-          userId: session.user.id,
+          userId: user.id,
         },
       });
     }

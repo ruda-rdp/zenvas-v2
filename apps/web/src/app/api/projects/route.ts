@@ -4,41 +4,36 @@
  *
  * Per BUSINESS_OS.md: Project created only after Order is CONFIRMED
  * Per PROJECT_OS.md: Project → Stage → Task hierarchy
+ *
+ * Authorization:
+ * - GET: Uses requireUser + requireAction + scopeToBrands
+ * - POST: Uses requireUser + requireAction for write:projects
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrandIds } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  scopeToBrands,
+  getAccessibleBrandIds,
+} from "@/lib/authorize";
 
 // GET /api/projects - List all projects for user's organization
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
-    // Get user's organization
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { organizationId: true },
-    });
+    // Use scopeToBrands for consistent brand filtering
+    const { brands, scopeFilter } = await scopeToBrands();
 
     const defaultPagination = { page: 1, limit: 20, total: 0, totalPages: 0 };
 
-    if (!user?.organizationId) {
-      return NextResponse.json({ projects: [], pagination: defaultPagination });
-    }
-
-    // Get all brands in this organization
-    const orgBrands = await prisma.brand.findMany({
-      where: { organizationId: user.organizationId },
-      select: { id: true },
-    });
-    const brandIds = orgBrands.map(b => b.id);
-
-    if (brandIds.length === 0) {
+    if (brands.length === 0) {
       return NextResponse.json({ projects: [], pagination: defaultPagination });
     }
 
@@ -47,9 +42,9 @@ export async function GET() {
     const where: Record<string, unknown> = {
       OR: [
         // Projects with orders from accessible brands
-        { order: { brandId: { in: brandIds } } },
+        { order: { brandId: { in: brands } } },
         // Solo projects - direct brand association
-        { brandId: { in: brandIds }, orderId: null },
+        { brandId: { in: brands }, orderId: null },
       ],
     };
 
@@ -89,9 +84,9 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    // For Editors, strip confidential data
+    // Apply confidentiality filtering for EDITORs
     const safeProjects = projects.map((project) => {
-      if (session.user.role === "EDITOR") {
+      if (user.role === "EDITOR") {
         // Editors should NEVER see order, service, client, or any price data
         return {
           id: project.id,
@@ -135,7 +130,7 @@ export async function GET() {
       return project;
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       projects: safeProjects,
       pagination: {
         page,
@@ -152,26 +147,27 @@ export async function GET() {
 
 // POST /api/projects - Create a new project (solo mode or from CONFIRMED Order)
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction instead of manual role check
+  const actionResult = await requireAction(user, "write:projects");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const body = await request.json();
-    const { 
+    const {
       // Solo mode (no order)
-      name, 
-      description, 
-      posterUrl, 
+      name,
+      description,
+      posterUrl,
       posterAspect,
       brandId,
       // From order mode
-      orderId 
+      orderId
     } = body;
 
     // If orderId provided, create from order (original flow)
@@ -244,7 +240,7 @@ export async function POST(request: Request) {
       });
 
       await prisma.activityLog.create({
-        data: { type: "PROJECT_CREATED", entityType: "Project", entityId: project.id, userId: session.user.id },
+        data: { type: "PROJECT_CREATED", entityType: "Project", entityId: project.id, userId: user.id },
       });
 
       return NextResponse.json({ project: completeProject }, { status: 201 });
@@ -263,7 +259,7 @@ export async function POST(request: Request) {
 
     // Sanitize description
     const sanitizedDescription = description ? description.trim().slice(0, 5000) : null;
-    
+
     // Validate posterUrl if provided (basic URL check)
     if (posterUrl && posterUrl.length > 2000) {
       return NextResponse.json({ error: "Poster URL is too long" }, { status: 400 });
@@ -277,7 +273,7 @@ export async function POST(request: Request) {
 
     // Get user's organization and accessible brands
     const userWithOrg = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: user.id },
       select: { organizationId: true },
     });
 
@@ -287,31 +283,31 @@ export async function POST(request: Request) {
 
     // Get brand from request or find/create one for solo project
     let targetBrandId: string | undefined = brandId;
-    
+
     if (!targetBrandId) {
       // Try to find existing brand
       const accessibleBrands = await getAccessibleBrandIds();
       targetBrandId = accessibleBrands[0];
-      
+
       // If no brand exists, create a default one for solo creators
       if (!targetBrandId) {
         const defaultBrand = await prisma.brand.create({
           data: {
-            name: `${session.user.name || 'My'}'s Projects`,
-            slug: `${session.user.id.slice(-8)}-personal`,
+            name: `${user.name || 'My'}'s Projects`,
+            slug: `${user.id.slice(-8)}-personal`,
             organizationId: userWithOrg.organizationId,
             hasClientPortal: false,
           },
         });
-        
+
         // Grant user access to this brand
         await prisma.brandAccess.create({
           data: {
-            userId: session.user.id,
+            userId: user.id,
             brandId: defaultBrand.id,
           },
         });
-        
+
         targetBrandId = defaultBrand.id;
       }
     }
@@ -339,7 +335,7 @@ export async function POST(request: Request) {
     });
 
     await prisma.activityLog.create({
-      data: { type: "PROJECT_CREATED", entityType: "Project", entityId: project.id, userId: session.user.id },
+      data: { type: "PROJECT_CREATED", entityType: "Project", entityId: project.id, userId: user.id },
     });
 
     return NextResponse.json({ project }, { status: 201 });

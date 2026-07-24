@@ -1,25 +1,34 @@
 /**
  * API: /api/clients
  * CRUD for Clients (Business OS)
- * 
+ *
  * Per CONSTITUTION.md: Client relationship belongs to Brand
  * Per HUMAN_CAPITAL_OS.md: Editor cannot see Client contact info
+ *
+ * Authorization:
+ * - GET: Uses requireUser + requireAction + scopeToBrands
+ * - POST: Uses requireUser + requireAction(write:clients)
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  scopeToBrands,
+  canAccessBrand,
+} from "@/lib/authorize";
 import { syncClientToOdoo } from "@/lib/odoo";
 import type { Prisma } from "@/generated/prisma";
 
 // GET /api/clients - List all clients for user's accessible brands
 // Supports cursor-based pagination
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
     const { searchParams } = new URL(request.url);
@@ -28,12 +37,17 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || "";
     const brandId = searchParams.get("brandId") || "";
 
-    const accessibleBrands = await getAccessibleBrandIds();
+    // Use scopeToBrands for consistent brand filtering
+    const { brands } = await scopeToBrands();
+
+    if (brands.length === 0) {
+      return NextResponse.json({ clients: [], pagination: { hasMore: false, nextCursor: null } });
+    }
 
     // Build where clause
     const whereClause: Prisma.ClientWhereInput = {
       brandId: {
-        in: accessibleBrands,
+        in: brands,
       },
     };
 
@@ -46,7 +60,7 @@ export async function GET(request: Request) {
     }
 
     // Add brand filter if specified
-    if (brandId && accessibleBrands.includes(brandId)) {
+    if (brandId && brands.includes(brandId)) {
       whereClause.brandId = brandId;
     }
 
@@ -72,7 +86,7 @@ export async function GET(request: Request) {
 
     // For Editors, strip confidential contact info (CONSTITUTION.md #2)
     const safeClients = results.map((client) => {
-      if (session.user.role === "EDITOR") {
+      if (user.role === "EDITOR") {
         // Strip email & phone for Editors
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { email: _email, phone: _phone, ...safe } = client;
@@ -96,15 +110,15 @@ export async function GET(request: Request) {
 
 // POST /api/clients - Create a new client
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  // Only Owner and Manager can create clients
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction instead of manual role check
+  const actionResult = await requireAction(user, "write:clients");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const body = await request.json();
@@ -117,7 +131,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check brand access before creating client
+    // Check brand access using centralized helper
     const hasAccess = await canAccessBrand(brandId);
     if (!hasAccess) {
       return NextResponse.json(
@@ -177,7 +191,7 @@ export async function POST(request: Request) {
         type: "LEAD_CONVERTED",
         entityType: "Client",
         entityId: client.id,
-        userId: session.user.id,
+        userId: user.id,
         metadata: { action: "client_created", name, email },
       },
     });

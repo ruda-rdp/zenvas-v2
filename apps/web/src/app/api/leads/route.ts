@@ -1,38 +1,54 @@
 /**
  * API: /api/leads
  * CRUD for Leads (Business OS - Lead Management)
- * 
+ *
  * Per LEAD_MANAGEMENT.md: Dual-path lead capture + qualification funnel
  * Lead → Qualified → Converted to Client
+ *
+ * Authorization:
+ * - GET: Uses requireUser + requireAction + scopeToBrands
+ * - POST: Uses requireUser + requireAction for write:leads + brand access check
  */
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  scopeToBrands,
+  enforceConfidentialityArray,
+  canAccessBrand,
+} from "@/lib/authorize";
 import { LeadStatus } from "@/generated/prisma";
 
 // GET /api/leads - List all leads for user's accessible brands
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const brandId = searchParams.get("brandId");
 
-    const accessibleBrands = await getAccessibleBrandIds();
+    // Use scopeToBrands for consistent brand filtering
+    const { brands } = await scopeToBrands();
+
+    if (brands.length === 0) {
+      return NextResponse.json({ leads: [] });
+    }
 
     const where: Record<string, unknown> = {
       brandId: {
-        in: accessibleBrands,
+        in: brands,
       },
     };
 
-    if (brandId && accessibleBrands.includes(brandId)) {
+    if (brandId && brands.includes(brandId)) {
       where.brandId = brandId;
     }
 
@@ -56,21 +72,10 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // For Editors, strip confidential data
-    if (session.user.role === "EDITOR") {
-      const safeLeads = leads.map((lead) => ({
-        id: lead.id,
-        name: lead.name,
-        status: lead.status,
-        priority: lead.priority,
-        interest: lead.interest,
-        createdAt: lead.createdAt,
-        brand: lead.brand,
-      }));
-      return NextResponse.json({ leads: safeLeads });
-    }
+    // Apply confidentiality filtering using centralized helper
+    const safeLeads = enforceConfidentialityArray(leads, user.role);
 
-    return NextResponse.json({ leads });
+    return NextResponse.json({ leads: safeLeads });
   } catch (error) {
     console.error("Error fetching leads:", error);
     return NextResponse.json({ error: "Failed to fetch leads" }, { status: 500 });
@@ -79,15 +84,15 @@ export async function GET(request: Request) {
 
 // POST /api/leads - Create a new lead
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  // Only Owner and Manager can create leads
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction instead of manual role check
+  const actionResult = await requireAction(user, "write:leads");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const body = await request.json();
@@ -113,7 +118,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check brand access before creating lead
+    // Check brand access using centralized helper
     const hasAccess = await canAccessBrand(brandId);
     if (!hasAccess) {
       return NextResponse.json(
@@ -151,7 +156,7 @@ export async function POST(request: Request) {
         type: "LEAD_CREATED",
         entityType: "Lead",
         entityId: lead.id,
-        userId: session.user.id,
+        userId: user.id,
       },
     });
 

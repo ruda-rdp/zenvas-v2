@@ -1,40 +1,55 @@
 /**
  * API: /api/orders
  * CRUD for Orders (Business OS)
- * 
+ *
  * Per BUSINESS_OS.md:
  * - Order lifecycle: DRAFT → CONFIRMED → IN_PROGRESS → COMPLETED
  * - Project created after Order is CONFIRMED (DP received)
  * - Order value confidential to Owner/Manager
+ *
+ * Authorization:
+ * - GET: Uses requireUser + requireAction + scopeToBrands
+ * - POST: Uses requireUser + requireAction(write:orders) + brand access
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrandIds, canAccessBrand } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  scopeToBrands,
+  stripConfidentialFields,
+  canAccessBrand,
+} from "@/lib/authorize";
 import { OrderStatus } from "@/generated/prisma";
 
 // GET /api/orders - List all orders
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const brandId = searchParams.get("brandId");
 
-    const accessibleBrands = await getAccessibleBrandIds();
+    // Use scopeToBrands for consistent brand filtering
+    const { brands } = await scopeToBrands();
+
+    if (brands.length === 0) {
+      return NextResponse.json({ orders: [] });
+    }
 
     const where: Record<string, unknown> = {
       brandId: {
-        in: accessibleBrands,
+        in: brands,
       },
     };
 
-    if (brandId && accessibleBrands.includes(brandId)) {
+    if (brandId && brands.includes(brandId)) {
       where.brandId = brandId;
     }
 
@@ -63,19 +78,12 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // For Editors, strip price
-    if (session.user.role === "EDITOR") {
-      const safeOrders = orders.map((order) => ({
-        ...order,
-        service: {
-          ...order.service,
-          price: undefined,
-        },
-      }));
-      return NextResponse.json({ orders: safeOrders });
-    }
+    // Apply confidentiality filtering for EDITORs - strip price/amount
+    const safeOrders = orders.map((order) =>
+      stripConfidentialFields(order, user.role)
+    );
 
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders: safeOrders });
   } catch (error) {
     console.error("Error fetching orders:", error);
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
@@ -84,14 +92,15 @@ export async function GET(request: Request) {
 
 // POST /api/orders - Create a new order (DRAFT)
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  if (session.user.role === "EDITOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction instead of manual role check
+  const actionResult = await requireAction(user, "write:orders");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const body = await request.json();
@@ -149,7 +158,7 @@ export async function POST(request: Request) {
         type: "ORDER_CREATED",
         entityType: "Order",
         entityId: order.id,
-        userId: session.user.id,
+        userId: user.id,
       },
     });
 

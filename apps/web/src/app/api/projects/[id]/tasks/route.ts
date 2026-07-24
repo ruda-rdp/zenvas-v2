@@ -1,26 +1,33 @@
 /**
  * API: /api/projects/[id]/tasks
  * Create tasks under a project
+ *
+ * Authorization:
+ * - GET: Uses requireUser + brand access + confidentiality
+ * - POST: Uses requireUser + requireAction(write:projects)
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canAccessBrand } from "@/lib/authorize";
+import {
+  requireUser,
+  requireAction,
+  canAccessBrand,
+} from "@/lib/authorize";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guards
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
 
-  // Only OWNER and MANAGER can create tasks
-  if (session.user.role !== "OWNER" && session.user.role !== "MANAGER") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { user } = authResult;
+
+  // Use requireAction for permission check
+  const actionResult = await requireAction(user, "write:projects");
+  if (!actionResult.success) return actionResult.response;
 
   try {
     const { id: projectId } = await params;
@@ -60,7 +67,7 @@ export async function POST(
 
     // Get or create a default stage
     let stage = project.stages[0];
-    
+
     if (!stage) {
       // Create a default stage for the project
       stage = await prisma.stage.create({
@@ -110,10 +117,11 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Use centralized guard
+  const authResult = await requireUser();
+  if (!authResult.success) return authResult.response;
+
+  const { user } = authResult;
 
   try {
     const { id: projectId } = await params;
@@ -121,6 +129,9 @@ export async function GET(
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
+        order: {
+          select: { brandId: true },
+        },
         stages: {
           include: {
             tasks: {
@@ -149,12 +160,33 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Flatten tasks from all stages
-    const tasks = project.stages.flatMap((stage) =>
-      stage.tasks.map((task) => ({
-        ...task,
-        stageName: stage.name,
-      }))
+    // Check brand access
+    const brandId = project.order?.brandId;
+    if (brandId) {
+      const hasAccess = await canAccessBrand(brandId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tasks = project.stages.flatMap((stage: any) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      stage.tasks.map((task: any) => {
+        const result: Record<string, unknown> = {
+          ...task,
+          stageName: stage.name,
+        };
+        // Apply confidentiality: strip payout info for EDITORs
+        if (user.role === "EDITOR") {
+          result.payout = undefined;
+          result.children = ((task.children as unknown as Array<Record<string, unknown>>) || []).map((child) => ({
+            ...child,
+            payout: undefined,
+          }));
+        }
+        return result;
+      })
     );
 
     return NextResponse.json({ tasks });
