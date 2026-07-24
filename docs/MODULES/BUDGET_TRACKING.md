@@ -1,4 +1,4 @@
-if# BUDGET_TRACKING.md
+# BUDGET_TRACKING.md
 
 **Status:** PHASE 2 MODULE (Placeholder — Placeholder for Production Module)
 

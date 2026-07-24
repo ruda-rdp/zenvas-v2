@@ -673,6 +673,36 @@ export const APPS: App[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════
+  // COLLABORATION - Core Apps (IMPLEMENTED)
+  // ═══════════════════════════════════════════════════════════════
+
+  {
+    id: "chat",
+    name: "Team Chat",
+    description: "Internal team messaging — channels, direct messages, presence.",
+    longDescription: "Team Chat enables real-time communication within your workspace. Create channels for different topics, send direct messages, and see team member presence at a glance.",
+    features: [
+      "Channel-based messaging",
+      "Direct messages",
+      "Real-time presence",
+      "Message threading",
+      "File sharing in chat",
+      "@mentions and notifications"
+    ],
+    icon: "💬",
+    category: "collaboration",
+    route: "/chat",
+    buildType: "native",
+    dependencies: [],
+    partOf: "collaboration",
+    isCore: false,
+    isStandalone: true,
+    isImplemented: true,
+    requiredRole: "ALL",
+    alwaysEnabled: false,
+  },
+
+  // ═══════════════════════════════════════════════════════════════
   // INTEGRATIONS (COMING SOON)
   // ═══════════════════════════════════════════════════════════════
 

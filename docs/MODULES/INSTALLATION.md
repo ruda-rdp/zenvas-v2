@@ -145,6 +145,6 @@ After installing Clients + Orders:
 ## Module Registry
 
 Full module specifications are available in:
-- [MODULE_REGISTRY.md](./MODULE_REGISTRY.md) - Complete catalog of all modules
+- [APP_REGISTRY.md](../ARCHITECTURE/APP_REGISTRY.md) - Complete catalog of all apps
 - [EPISODIC_PRODUCTION_GUIDE.md](./EPISODIC_PRODUCTION_GUIDE.md) - Netflix-scale production needs
 - Individual module specs in [docs/MODULES/](../MODULES/)

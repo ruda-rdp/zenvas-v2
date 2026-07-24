@@ -1,4 +1,8 @@
-# COMMUNICATION_MODULE.md
+# OMNICHANNEL_INBOX.md
+
+> **Catatan:** Dokumen ini soal mengumpulkan pesan dari kanal eksternal (Facebook, WhatsApp, Website chat) ke satu inbox. Ini **berbeda** dari App "Team Chat" (`docs/ARCHITECTURE/APP_REGISTRY.md`) yang sudah dibangun untuk komunikasi internal antar anggota tim.
+
+---
 
 **Purpose:** Unified communication hub — all messages from all channels flow into Zenvas.
 
@@ -71,6 +75,8 @@ Clients use whatever platform they're comfortable with (Facebook Messenger, What
 - Per-project threads
 - AI chat (Phase 2)
 
+**Note:** The internal chat is now implemented as the "Team Chat" App (see `docs/ARCHITECTURE/APP_REGISTRY.md`). This module focuses on **external** client communications only.
+
 ---
 
 ## Website Chat Widget (Odoo Style)
@@ -141,7 +147,7 @@ If no match, create new Lead:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  COMMUNICATION MODULE ARCHITECTURE                                      │
+│  OMNICHANNEL INBOX ARCHITECTURE                                         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │                           ┌─────────────────────────────────────────┐   │
@@ -295,3 +301,9 @@ interface IntegrationStats {
   status: 'healthy' | 'warning' | 'error';
 }
 ```
+
+---
+
+**Document History:**
+- v0.1 (2026-07-21): Initial draft
+- v0.2 (2026-07-24): Renamed to OMNICHANNEL_INBOX.md to clarify distinction from Team Chat app (D15)

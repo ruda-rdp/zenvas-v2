@@ -122,6 +122,45 @@ const storyboard: App = {
 
 ---
 
+## Collaboration Apps
+
+### Team Chat (IMPLEMENTED)
+
+| Field | Value |
+|-------|-------|
+| **ID** | `chat` |
+| **Name** | Team Chat |
+| **Description** | Internal team messaging — channels, direct messages, presence. |
+| **Category** | `collaboration` |
+| **Build Type** | `native` ("Built-in") |
+| **Route** | `/chat` |
+| **Dependencies** | None |
+| **isCore** | `false` |
+| **isStandalone** | `true` |
+| **alwaysEnabled** | `false` (optional app, owner can enable via App Store) |
+| **isImplemented** | `true` |
+
+```typescript
+const chat: App = {
+  id: "chat",
+  name: "Team Chat",
+  description: "Internal team messaging — channels, direct messages, presence.",
+  category: "collaboration",
+  route: "/chat",
+  buildType: "native",
+  dependencies: [],
+  isCore: false,
+  isStandalone: true,
+  isImplemented: true,
+  requiredRole: "ALL",
+  alwaysEnabled: false,
+};
+```
+
+**Note:** Team Chat is distinct from the Omnichannel Inbox (`docs/MODULES/OMNICHANNEL_INBOX.md`). Team Chat handles **internal** communication between team members, while Omnichannel Inbox aggregates **external** messages from clients (Facebook, WhatsApp, website chat).
+
+---
+
 ## App Store Display
 
 The App Store UI must:

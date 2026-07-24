@@ -191,6 +191,17 @@ export async function hasStoryboardApp(orgId: string): Promise<boolean> {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// CONVENIENCE CHECKS - App Level (Collaboration)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Check if Chat app is installed
+ */
+export async function hasChatApp(orgId: string): Promise<boolean> {
+  return isAppInstalled(orgId, "chat");
+}
+
+// ─────────────────────────────────────────────────────────────────
 // ROLE-BASED ACCESS
 // ─────────────────────────────────────────────────────────────────
 
