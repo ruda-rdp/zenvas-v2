@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { ensureDefaultApps } from "@/lib/db-defaults";
 import { Role, EmploymentType } from "@/generated/prisma";
 import bcrypt from "bcryptjs";
 import { RegisterSchema, createValidationErrorResponse } from "@/lib/validation";
@@ -111,6 +112,9 @@ export async function POST(request: Request) {
         slug: orgSlug,
       },
     });
+
+    // Seed default apps & packages so OWNER immediately has Project OS + Human Capital OS
+    await ensureDefaultApps(organization.id);
 
     const user = await prisma.user.create({
       data: {

@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ensureDefaultApps } from "@/lib/db-defaults";
 
 // Constants
 const FREE_SUBDOMAIN_SUFFIX = process.env.FREE_SUBDOMAIN_SUFFIX || "zenvas-portal.app";
@@ -98,6 +99,9 @@ export async function POST(request: Request) {
         data: { name: orgName.trim() },
       });
 
+      // Ensure default apps/packages (may not be set if org was created before this fix)
+      await ensureDefaultApps(existingUser.organization.id);
+
       // Auto-create default service
       await prisma.service.createMany({
         data: [
@@ -167,21 +171,21 @@ export async function POST(request: Request) {
     const plan = enableClientPortal ? "growing" : "solo";
     const freeSubdomain = enableClientPortal ? generateFreeSubdomain(slug) : null;
 
-    // Create organization with default apps (Solo mode)
+    // Create organization with default apps (ensureDefaultApps called below)
     const org = await prisma.organization.create({
       data: {
         name: orgName.trim(),
         slug: generateSlug(orgName),
         plan,
-        // Default apps: core apps + business-os if enabled
-        apps: enableClientPortal
-          ? ["project-os", "human-capital-os", "business-os"]
-          : ["project-os", "human-capital-os"],
+        // apps/packages: use schema defaults, then normalise via ensureDefaultApps()
         users: {
           connect: { id: session.user.id },
         },
       },
     });
+
+    // Seed correct default apps & packages (overrides any schema defaults with app names)
+    await ensureDefaultApps(org.id);
 
     // Create first brand
     const brand = await prisma.brand.create({

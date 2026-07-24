@@ -23,12 +23,14 @@ model Organization {
   plan      String   @default("solo")  // "solo" | "growing" | "agency"
 
   // Packages installed (e.g., "project-os", "human-capital-os", "business-os")
+  // Default values are derived from and kept in sync with apps/web/src/lib/db-defaults.ts
+  // Single source of truth: db-defaults.ts DEFAULT_APPS / DEFAULT_PACKAGES
   packages  String[] @default(["project-os", "human-capital-os"])
 
   // Individual apps installed (e.g., "projects", "tasks", "clients", "orders", etc.)
-  // Default is set in application code (apps/web/src/lib/db-defaults.ts)
+  // Schema default is set for safety; application code uses db-defaults.ts ensureDefaultApps()
   // Default: ["projects", "stages", "tasks", "board", "team", "payouts"]
-  apps      String[] @default([])
+  apps      String[] @default(["projects", "stages", "tasks", "board", "team", "payouts"])
 
   brands    Brand[]
   users     User[]

@@ -1,15 +1,18 @@
 /**
  * Database Default Values
  *
- * Provides default values for database records.
- * Use these when creating new records to ensure proper defaults.
+ * SINGLE SOURCE OF TRUTH for default apps and packages.
+ * Schema.prisma @default(...) values are kept in sync with these constants.
+ *
+ * Usage: Call ensureDefaultApps(orgId) after creating a new Organization.
+ *        The function is idempotent — safe to call multiple times.
  */
 
 import { prisma } from "./db";
 
 /**
  * Default apps for a new organization
- * These are the core apps that are always installed
+ * Core apps: Project OS (projects/stages/tasks/board) + Human Capital OS (team/payouts)
  */
 export const DEFAULT_APPS = [
   // Project OS core
@@ -24,6 +27,7 @@ export const DEFAULT_APPS = [
 
 /**
  * Default packages for a new organization
+ * Each package enables a set of apps above
  */
 export const DEFAULT_PACKAGES = [
   "project-os",
@@ -31,8 +35,9 @@ export const DEFAULT_PACKAGES = [
 ] as const;
 
 /**
- * Ensure organization has default apps set
- * Call this after creating a new organization
+ * Ensure organization has default apps AND packages set.
+ * Idempotent — only updates if apps is empty or packages is empty.
+ * Call this after creating a new Organization.
  */
 export async function ensureDefaultApps(organizationId: string): Promise<void> {
   const org = await prisma.organization.findUnique({
@@ -42,8 +47,8 @@ export async function ensureDefaultApps(organizationId: string): Promise<void> {
 
   if (!org) return;
 
-  // Only update if apps is empty
-  if (org.apps.length === 0) {
+  // Only update if apps OR packages is empty (handles legacy data / partial state)
+  if (org.apps.length === 0 || org.packages.length === 0) {
     await prisma.organization.update({
       where: { id: organizationId },
       data: {
