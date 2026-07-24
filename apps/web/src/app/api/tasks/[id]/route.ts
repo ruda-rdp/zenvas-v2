@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TaskStatus } from "@/generated/prisma";
-import { canAccessBrand } from "@/lib/authorize";
+import { canAccessBrand, stripConfidentialFields } from "@/lib/authorize";
 
 // GET /api/tasks/[id]
 export async function GET(
@@ -79,7 +79,10 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ task });
+    // Apply confidentiality filtering for EDITORs - strip payout data
+    const safeTask = stripConfidentialFields(task, session.user.role);
+
+    return NextResponse.json({ task: safeTask });
   } catch (error) {
     console.error("Error fetching task:", error);
     return NextResponse.json({ error: "Failed to fetch task" }, { status: 500 });

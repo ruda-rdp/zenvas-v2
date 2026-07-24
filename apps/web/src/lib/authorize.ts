@@ -387,8 +387,11 @@ const EDITOR_ALLOWED_FIELDS = new Set([
   "id", "name", "description", "status", "order",
   "expectedDurationMinutes", "startedAt", "completedAt",
   "parentTaskId", "assigneeUserId", "stageId",
+  "dueDate", "startDate", "priority", "category", "tags",
   // Common fields
   "createdAt", "updatedAt",
+  // Safe relations (limited fields only)
+  "brandId", "projectId", "stageName",
 ]);
 
 /**
