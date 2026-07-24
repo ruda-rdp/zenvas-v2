@@ -1,7 +1,7 @@
 // Zenvas v2 - Prisma Schema
 // Based on docs/PLANNING/DATA-MODELS.md (Updated v1.1)
 // Reflects ADR-0005: Modular Architecture
-// Tech Stack: Next.js 14 + Prisma 5.x + PostgreSQL (Neon)
+// Tech Stack: Next.js 16 + Prisma 7.x + PostgreSQL (Neon)
 
 generator client {
   provider = "prisma-client"

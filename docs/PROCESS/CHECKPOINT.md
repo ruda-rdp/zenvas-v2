@@ -1,8 +1,8 @@
 # Zenvas v2 - Development Checkpoint
 
 **Last Updated:** 2026-07-24
-**Last Commit:** `e35f790` - feat: Implement global live chat system
-**Branch:** main
+**Last Commit:** `3597924` - feat(upload): object storage (S3/R2 presigned) replacing base64
+**Branch:** master
 
 ---
 
@@ -11,12 +11,13 @@
 **Zenvas v2** is a multi-tenant SaaS application for creative businesses (production houses, video editors, agencies).
 
 ### Tech Stack
-- **Frontend:** Next.js 14 (App Router)
+- **Frontend:** Next.js 16 (App Router) + React 19
 - **Database:** PostgreSQL (Neon)
-- **ORM:** Prisma
-- **Auth:** NextAuth.js
-- **Styling:** Tailwind CSS
+- **ORM:** Prisma 7.x
+- **Auth:** NextAuth.js v5
+- **Styling:** Tailwind CSS 4
 - **Language:** TypeScript
+- **File Storage:** S3/R2-compatible (via presigned URLs)
 
 ---
 
@@ -41,6 +42,7 @@
 | **Project Management** | ✅ | CRUD + Solo mode + 4-stage tabs |
 | **Task Management** | ✅ | Get/Update/Apply/Assign/Complete + Premium Task Manager |
 | **Client Portal / Domain Routing** | ⏳ | ADR-0003 defined, not wired — planned next (D2) |
+| **File Upload** | ✅ | S3/R2 presigned URLs implemented |
 | **Payout & Wallet** | ✅ | Full payout system |
 | **Editor Board** | ✅ | Task board for editors |
 | **Global Chat** | ✅ | Live messaging + @mentions + presence |

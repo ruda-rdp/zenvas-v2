@@ -37,22 +37,26 @@ Quick reference:
 ZENVAS-V2/
 ├── docs/                     # All foundational documents
 │   ├── PLANNING/             # Pre-implementation planning artifacts
-│   └── ADR/                  # Architecture Decision Records
+│   ├── ADR/                  # Architecture Decision Records
+│   ├── ARCHITECTURE/         # System architecture docs
+│   ├── MODULES/              # Module specifications
+│   └── PROCESS/              # Development process docs
 │
 ├── apps/
 │   └── web/                  # Main Next.js application
 │       ├── src/
-│       │   ├── app/          # App Router pages
-│       │   └── api/          # API routes
+│       │   ├── app/          # App Router pages & API routes
+│       │   ├── lib/          # Shared libraries
+│       │   └── components/   # React components
 │       └── prisma/           # Database schema
 │
-├── packages/
-│   └── shared/               # Shared types, utilities
-│
-└── workspace/
-    └── PLANNING/             # UI mockups, page flows
-        └── MOCKUPS/          # Wireframe artifacts
+└── packages/
+    └── shared/               # (Placeholder) Shared types/utilities
+                               # NOTE: Not currently used. Converting to
+                               # true monorepo requires separate decision.
 ```
+
+> **Note on Monorepo:** The `packages/shared/` directory exists as a placeholder but is not currently populated or used. The project is currently a single-app structure. Converting to a true monorepo (e.g., with Turborepo) is an open architectural decision that requires explicit approval.
 
 ---
 
@@ -72,14 +76,14 @@ ZENVAS-V2/
 
 ---
 
-## 🛠️ Tech Stack (Planned)
+## 🛠️ Tech Stack
 
-- **Frontend:** Next.js 14 (App Router) + React 18 + TypeScript
-- **Styling:** Tailwind CSS
+- **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript
+- **Styling:** Tailwind CSS 4
 - **Backend:** Next.js API Routes
 - **Database:** PostgreSQL (Neon)
-- **ORM:** Prisma 5.x
-- **Auth:** NextAuth.js
+- **ORM:** Prisma 7.x
+- **Auth:** NextAuth.js v5
 - **Deployment:** Self-hosted Ubuntu VM (initial)
 
 ---
@@ -92,4 +96,4 @@ ZENVAS-V2/
 
 ---
 
-*Last updated: 2026-07-20*
+*Last updated: 2026-07-24*
