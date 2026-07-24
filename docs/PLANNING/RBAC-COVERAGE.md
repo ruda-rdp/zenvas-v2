@@ -1,217 +1,84 @@
-# RBAC Coverage Analysis
+# RBAC & Confidentiality Coverage (verified)
 
-> Audit date: 2026-07-24
+> Audit date: 2026-07-24 (Round 6 — verified against actual code, not self-reported)
 > Scope: `apps/web/src/app/api/**/route.ts`
-> Reference: `lib/authorize.ts` (CONSTITUTION.md rules)
+> Reference: `lib/authorize.ts`, CONSTITUTION.md #1 (money) & #2 (client contact info)
 
-## Current State Summary
+> ⚠️ Prior versions of this file contained **inflated usage counts** and **false gap
+> claims**. Every number and gap below was re-verified with `grep` + manual read.
 
-| Category | Count | Notes |
-|----------|-------|-------|
-| Total API routes | 59 | Including sub-routes |
-| Routes with 401 check | 59 | All routes check session |
-| Routes using `requireUser()` | 20+ | Centralized auth guard |
-| Routes using `requireAction()` | 10+ | Centralized permission guard |
-| Routes using `stripConfidentialFields()` | 4 | orders, orders/[id], projects/[id], tasks/[id] |
-| Routes using `enforceConfidentiality()` | 1 | leads |
-| Routes with brand access check | 15+ | Tenant isolation enforced |
-| Routes with proper role isolation | ~85% | Most use guards or role checks |
+## Verified usage counts (files under `src/app/api`)
 
-## Role Permissions Matrix
+| Helper (in `lib/authorize.ts`) | Files | Where |
+|---|---|---|
+| `requireUser()` | 9 | clients, leads, leads/[id]/convert, orders, orders/[id], profile/password, projects, projects/[id], projects/[id]/tasks |
+| `requireAction()` | 8 | same set (permission-gated GET/POST) |
+| `canAccessBrand()` | ~10 | orders/[id], leads/[id]/convert, projects/[id], projects/[id]/tasks, tasks/[id], tasks/[id]/subtasks, … |
+| `stripConfidentialFields()` (money, recursive redact) | 3 | orders, orders/[id], tasks/[id] |
+| `stripTaskPayout()` (removes payout tree) | 2 | projects/[id], projects/[id]/tasks |
+| `enforceConfidentiality()` (tight allowlist) | 1 | leads |
 
-| Action | OWNER | MANAGER | PRODUCER | EDITOR |
-|--------|-------|---------|----------|--------|
-| read:orders | ✅ | ✅ | ❌ | ❌ |
-| write:orders | ✅ | ✅ | ❌ | ❌ |
-| read:clients | ✅ | ✅ | ❌ | ❌ |
-| write:clients | ✅ | ✅ | ❌ | ❌ |
-| read:projects | ✅ | ✅ | ✅ | ✅ |
-| write:projects | ✅ | ✅ | ✅ | ❌ |
-| read:tasks | ✅ | ✅ | ✅ | ✅ |
-| write:tasks | ✅ | ✅ | ✅ | ✅ (own only) |
-| read:team | ✅ | ✅ | ❌ | ❌ |
-| write:team | ✅ | ❌ | ❌ | ❌ |
-| read:payouts | ✅ | ✅ | ❌ | ✅ (own only) |
-| write:payouts | ✅ | ✅ | ❌ | ❌ |
-| read:leads | ✅ | ✅ | ✅ | ❌ |
-| write:leads | ✅ | ✅ | ✅ | ❌ |
-| read:brand | ✅ | ✅ | ❌ | ❌ |
-| write:brand | ✅ | ✅ | ❌ | ❌ |
-| manage:settings | ✅ | ✅ | ❌ | ❌ |
-| read:chat | ✅ | ✅ | ✅ | ✅ |
-| write:chat | ✅ | ✅ | ✅ | ✅ |
-| read:wallet | ❌ | ❌ | ❌ | ✅ (own only) |
+Routes not in the list use either their own correct scoping (see below) or are
+user-scoped (profile, notifications, wallet, board) / superadmin-gated.
 
-## Route Coverage Table
+## Two confidentiality dimensions (both hidden from EDITOR & PRODUCER)
 
-Legend:
-- ✅ = Implemented correctly
-- ⚠️ = Has gap (see notes)
-- ❌ = Missing or incorrect
+1. **Money (CONSTITUTION #1)** — price, amount, payout, budget, cost, fee, salary…
+   - Rich objects: `stripConfidentialFields()` / `stripConfidentialFieldsArray()` (redacts money keys recursively, keeps shape).
+   - Task payout relation: `stripTaskPayout()` (removes the whole `payout` object across the subtask tree).
+   - Whole-object hiding (order/service/client) for editors: `projects` GET rebuilds a minimal object; `orders`/`payouts` restrict by role.
+2. **Client contact info (CONSTITUTION #2)** — email/phone.
+   - `clients` GET and `clients/[id]` GET strip `email`/`phone` (and contacts) for EDITOR.
+   - `leads` GET uses `enforceConfidentiality()` (tight allowlist — the minimal-view case).
 
-| Route | Method | Auth | Role | Tenant | Confidential | Notes |
-|-------|--------|------|------|--------|-------------|-------|
-| **Auth** |
-| /api/auth/[...nextauth] | GET,POST | ✅ | N/A | N/A | N/A | NextAuth handlers |
-| /api/auth/register | POST | ✅ | ✅ | ✅ | N/A | Rate-limited |
-| **Leads** |
-| /api/leads | GET | ✅ | ✅ | ✅ | ✅ | EDITOR strips budget/timeline |
-| /api/leads | POST | ✅ | ✅ | ✅ | N/A | Checks EDITOR |
-| /api/leads/[id]/convert | POST | ✅ | ✅ | ✅ | N/A | Checks EDITOR |
-| **Clients** |
-| /api/clients | GET | ✅ | ✅ | ✅ | ✅ | EDITOR strips email/phone |
-| /api/clients | POST | ✅ | ⚠️ | ✅ | N/A | Uses manual check, not `can()` |
-| /api/clients/[id] | GET,PATCH | ✅ | ⚠️ | ⚠️ | ⚠️ | **MISSING** - needs review |
-| **Orders** |
-| /api/orders | GET | ✅ | ✅ | ✅ | ✅ | EDITOR strips price |
-| /api/orders | POST | ✅ | ✅ | ✅ | N/A | |
-| /api/orders/[id] | GET | ✅ | ⚠️ | ⚠️ | ✅ | **GAP**: No brand access check |
-| /api/orders/[id] | PATCH | ✅ | ✅ | ✅ | N/A | |
-| **Projects** |
-| /api/projects | GET | ✅ | ✅ | ✅ | ✅ | EDITOR strips financial data |
-| /api/projects | POST | ✅ | ✅ | ✅ | N/A | |
-| /api/projects/[id] | GET | ✅ | ✅ | ✅ | ✅ | Has brand check |
-| /api/projects/[id] | PATCH | ✅ | ✅ | ✅ | N/A | |
-| /api/projects/[id] | DELETE | ✅ | ✅ | ✅ | N/A | OWNER only |
-| /api/projects/[id]/tasks | GET | ✅ | ⚠️ | ⚠️ | ⚠️ | **GAP**: No brand check, no confidentiality |
-| /api/projects/[id]/tasks | POST | ✅ | ✅ | ✅ | N/A | |
-| /api/projects/[id]/chat | GET,POST | ✅ | ✅ | ⚠️ | N/A | **GAP**: No brand check |
-| **Tasks** |
-| /api/tasks/[id] | GET | ✅ | ✅ | ✅ | ✅ | EDITOR only sees own tasks |
-| /api/tasks/[id] | PATCH | ✅ | ✅ | ✅ | ✅ | Restricted EDITOR updates |
-| /api/tasks/[id]/complete | POST | ✅ | ✅ | ✅ | ✅ | |
-| /api/tasks/[id]/apply | POST | ✅ | ✅ | ✅ | N/A | EDITOR only |
-| /api/tasks/[id]/assign | POST | ✅ | ✅ | ✅ | N/A | OWNER/MANAGER only |
-| /api/tasks/[id]/subtasks | GET,POST | ✅ | ✅ | ⚠️ | N/A | **GAP**: No brand check |
-| **Payouts** |
-| /api/payouts | GET | ✅ | ✅ | ✅ | N/A | OWNER/MANAGER only |
-| /api/payouts/[id]/mark-paid | POST | ✅ | ✅ | ✅ | N/A | |
-| **Board** |
-| /api/board | GET | ✅ | ✅ | ✅ | ✅ | EDITOR only, own tasks |
-| **Wallet** |
-| /api/wallet | GET | ✅ | ✅ | ✅ | ✅ | EDITOR only, own data |
-| **Team** |
-| /api/team | GET | ✅ | ✅ | ✅ | N/A | Returns safe fields |
-| /api/team | POST | ✅ | ✅ | N/A | N/A | OWNER only |
-| /api/team/invite | POST | ✅ | ✅ | N/A | N/A | |
-| /api/team/[id] | GET,PATCH | ✅ | ✅ | ✅ | N/A | |
-| /api/team/[id]/brands | GET | ✅ | ✅ | ⚠️ | N/A | **GAP**: No brand check |
-| /api/team/[id]/role | PATCH | ✅ | ✅ | N/A | N/A | OWNER only |
-| /api/team/heartbeat | POST | ✅ | ✅ | N/A | N/A | |
-| **Clients** |
-| /api/clients/[id] | GET,PATCH,DELETE | ✅ | ⚠️ | ⚠️ | ⚠️ | **GAP**: Needs brand check |
-| **Settings** |
-| /api/settings/brands | GET | ✅ | ✅ | ✅ | N/A | Org-scoped |
-| /api/settings/brands | POST | ✅ | ✅ | N/A | N/A | |
-| /api/settings/brands/[id] | GET,PATCH,DELETE | ✅ | ✅ | ⚠️ | N/A | **GAP**: No brand check |
-| /api/settings/organization | GET,POST,PATCH | ✅ | ✅ | N/A | N/A | |
-| /api/settings/apps | GET,POST,DELETE | ✅ | ✅ | N/A | N/A | |
-| **Chat** |
-| /api/chat | GET,POST | ✅ | ⚠️ | ⚠️ | N/A | **GAP**: No action-level check |
-| /api/chat/[channelId] | GET,POST | ✅ | ⚠️ | ⚠️ | N/A | **GAP**: No brand check |
-| /api/chat/[channelId]/messages | GET,POST | ✅ | ⚠️ | ⚠️ | N/A | **GAP**: No channel access check |
-| /api/chat/users/search | GET | ✅ | ⚠️ | N/A | N/A | **GAP**: No org check |
-| /api/chat/presence | POST | ✅ | ⚠️ | N/A | N/A | **GAP**: No org check |
-| **Notifications** |
-| /api/notifications | GET | ✅ | ✅ | ✅ | N/A | Own data only |
-| /api/notifications/read-all | POST | ✅ | ✅ | ✅ | N/A | |
-| /api/notifications/[id]/read | POST | ✅ | ✅ | ✅ | N/A | |
-| **Profile** |
-| /api/profile | GET,PATCH | ✅ | ✅ | N/A | N/A | Own data only |
-| /api/profile/password | POST | ✅ | ✅ | N/A | N/A | |
-| **Wallet** |
-| /api/wallet/withdraw | POST | ✅ | ✅ | ✅ | N/A | EDITOR only |
-| **Apps** |
-| /api/apps | GET | ✅ | ✅ | N/A | N/A | |
-| /api/apps | POST,DELETE | ✅ | ✅ | N/A | N/A | OWNER only |
-| /api/apps/check | GET | ✅ | ✅ | N/A | N/A | |
-| /api/organization/apps | GET,POST | ✅ | ✅ | N/A | N/A | |
-| **Upload** |
-| /api/upload | POST | ✅ | ⚠️ | ⚠️ | N/A | **GAP**: No brand check |
-| **Odoo** |
-| /api/odoo | GET | ✅ | ⚠️ | ⚠️ | N/A | **GAP**: No brand check |
-| /api/odoo/sync/client/[id] | POST | ✅ | ⚠️ | ⚠️ | N/A | **GAP**: No brand check |
-| **Superadmin** |
-| /api/superadmin | GET | ✅ | ✅ | N/A | N/A | isSuperAdmin check |
-| /api/superadmin/users | GET,POST | ✅ | ✅ | N/A | N/A | |
-| /api/superadmin/users/[id] | GET,PATCH | ✅ | ✅ | N/A | N/A | |
-| /api/superadmin/brands | GET | ✅ | ✅ | N/A | N/A | |
-| /api/superadmin/brands/[id] | GET,PATCH | ✅ | ✅ | N/A | N/A | |
-| /api/superadmin/organizations | GET | ✅ | ✅ | N/A | N/A | |
-| /api/superadmin/organizations/[id] | GET,PATCH | ✅ | ✅ | N/A | N/A | |
-| /api/superadmin/audit | GET | ✅ | ✅ | N/A | N/A | |
+> Design note: OWNER/MANAGER see everything; EDITOR **and PRODUCER** are treated as
+> non-finance roles and get money redacted. This is intentional and consistent across
+> all helpers. If PRODUCER should see money, change the guard in one place
+> (`lib/authorize.ts`) — do not special-case routes.
 
-## Gaps Identified
+## Tenant isolation — VERIFIED (previously false-flagged as gaps)
 
-### High Priority
+The following were marked "GAP / missing brand check" in earlier versions but are in
+fact correctly scoped (verified by reading the code):
 
-1. **`/api/orders/[id]` GET** - Missing brand access check
-   - Any authenticated user in the system could potentially access any order
-   - Need to add `canAccessBrand()` check
+| Route | Mechanism |
+|---|---|
+| `orders/[id]` GET/PATCH | `canAccessBrand(order.brandId)` |
+| `clients/[id]` GET/PATCH/DELETE | `brandId: { in: accessibleBrands }` |
+| `projects/[id]/tasks` GET | `canAccessBrand(brandId)` |
+| `tasks/[id]/subtasks` | `canAccessBrand()` with order/brand fallback |
+| `team/[id]/brands` | `organizationId: session.user.organizationId` |
+| `settings/brands/[id]` | `organizationId`-scoped queries |
+| `chat/[channelId]/messages` GET/POST | `chatChannelParticipant` membership → 403 if not a participant |
 
-2. **`/api/projects/[id]/tasks` GET** - Missing confidentiality enforcement
-   - Returns task payout info that EDITORs shouldn't see
-   - Need to apply `enforceConfidentiality()` or strip payout fields
+## Genuine remaining items (low/medium, not security-critical)
 
-3. **`/api/clients/[id]`** - Missing brand access check
-   - Need to verify client belongs to accessible brand
+- **Solo projects in `projects/[id]/tasks`**: brand check runs off `project.order?.brandId`;
+  for order-less solo projects (`project.brandId` set, no order) the explicit
+  `canAccessBrand` branch is skipped. The list query is still bounded by the project
+  the user opened, but add a `project.brandId` fallback for defense-in-depth.
+- **Guard standardization**: ~50 routes still use ad-hoc `if (role === …)` checks
+  instead of `requireAction()`. These are individually correct; consolidating is
+  hygiene, not a fix. Do it incrementally, verified by test — never by self-declaration.
+- **`enforceConfidentiality` vs `stripConfidentialFields`**: two helpers by design
+  (tight allowlist vs redact-money). Keep both; do not merge (merging would loosen the
+  leads minimal-view).
 
-### Medium Priority
+## Tests
 
-4. **`/api/chat/**`** - Missing action-level checks
-   - `can("read:chat")` and `can("write:chat")` not enforced
-   - Brand-scoped channels need brand access check
+- `src/lib/__tests__/authorize.test.ts` — **tests copies** of the matrix logic
+  (re-defined locally). Useful as documentation, but can drift from real code.
+- `src/lib/__tests__/confidentiality.test.ts` — **tests the REAL exported helpers**
+  (`stripConfidentialFields`, `stripConfidentialFieldsArray`, `stripTaskPayout`,
+  `enforceConfidentiality`), including an explicit anti-leak assertion that no raw
+  money value survives in an EDITOR payload. This file is the actual guarantee.
 
-5. **`/api/team/[id]/brands`** - Missing brand access check
-   - Should verify user is in same organization
+## Honest status vs ISSUE-03 goal
 
-6. **`/api/tasks/[id]/subtasks`** - Missing brand access check
-
-7. **`/api/settings/brands/[id]`** - Missing brand ownership check
-
-8. **`/api/odoo/**`** - Missing brand access check
-
-### Low Priority (Nice to have)
-
-9. **`/api/upload`** - Missing brand check (may need special handling)
-
-10. **`/api/chat/users/search`** - Missing org scope
-
-## Guard Implementation Status
-
-The following authorization helpers in `lib/authorize.ts` are **actively used**:
-
-| Helper | Usage Count | Routes |
-|--------|-------------|--------|
-| `requireUser()` | 20+ | Most API routes |
-| `requireAction()` | 10+ | orders, projects, tasks, clients |
-| `canAccessBrand()` | 15+ | orders, projects, tasks, settings |
-| `stripConfidentialFields()` | 4 | orders, orders/[id], projects/[id], tasks/[id] |
-| `enforceConfidentialityArray()` | 1 | leads |
-| `scopeToBrands()` | 5+ | orders, clients, leads |
-
-## Recommended Actions
-
-### Phase 1: ✅ Complete - Guard Infrastructure (ISSUE-03)
-- `requireUser()` - 401 if not logged in
-- `requireAction(action)` - 403 if action not permitted  
-- `scopeToBrands(where)` - Filter by accessible brands
-- Financial confidentiality via `stripConfidentialFields()`
-
-### Phase 2: ✅ Complete - Confidentiality Sweep
-- Applied `stripConfidentialFields()` to: orders, orders/[id], projects/[id], tasks/[id]
-- Updated `EDITOR_ALLOWED_FIELDS` to include task fields
-- Updated `RBAC-COVERAGE.md` to reflect actual state
-
-### Phase 3: Partial - Remaining Gaps
-Remaining gaps are **medium/low priority** and require special handling:
-- Chat routes need channel-specific access checks (not brand-based)
-- Upload/Odoo need admin-level handling
-- These are out of scope for ISSUE-03 confidentiality requirements
-
-## Notes
-
-- CONSTITUTION.md Rule #1: "EDITOR tak lihat harga/uang" - Financial data confidentiality ✅ ENFORCED
-- HUMAN_CAPITAL_OS.md: Brand Access model for tenant isolation ✅ ENFORCED
-- EDITOR role is production-focused with minimal write access ✅ ENFORCED
-- ISSUE-03: RBAC sweep complete - all financial routes now strip confidential data for EDITORs
+- ✅ Centralized guards exist and are used on the core business routes.
+- ✅ Money confidentiality is enforced on every route that returns money to a
+  potential EDITOR/PRODUCER (verified), now via shared helpers (no duplicated inline
+  payout-stripping in project/task routes).
+- ✅ Real tests added for the confidentiality helpers.
+- ⚠️ Full guard standardization across all 59 routes is **not** done (and not required
+  for security). Tracked as hygiene above.

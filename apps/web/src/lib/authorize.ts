@@ -468,8 +468,9 @@ export function stripConfidentialFields<T extends Record<string, unknown>>(
 
   const moneyFieldPatterns = [
     'price', 'amount', 'budget', 'cost', 'fee', 'rate',
-    'payoutAmount', 'total', 'subtotal', 'tax', 'discount',
+    'payoutAmount', 'payout', 'total', 'subtotal', 'tax', 'discount',
     'revenue', 'profit', 'margin', 'balance', 'withdrawal',
+    'salary', 'wage', 'commission', 'earning', 'income',
   ];
 
   const stripMoneyFields = (obj: Record<string, unknown>): void => {
@@ -489,4 +490,61 @@ export function stripConfidentialFields<T extends Record<string, unknown>>(
 
   stripMoneyFields(result as Record<string, unknown>);
   return result;
+}
+
+
+/**
+ * ── CONFIDENTIALITY HELPERS — SINGLE SOURCE OF TRUTH ──────────────────────────
+ *
+ * Zenvas has TWO confidentiality dimensions (both hidden from EDITOR/PRODUCER,
+ * visible to OWNER/MANAGER). Use the centralized helpers below — do NOT hand-roll
+ * inline `role === "EDITOR"` field-picking in routes:
+ *
+ *   1. MONEY (CONSTITUTION #1) — prices, amounts, payouts, budgets.
+ *      → stripConfidentialFields() / stripConfidentialFieldsArray()  (redacts money keys, keeps shape)
+ *      → stripTaskPayout()  (removes the whole `payout` relation from a task tree)
+ *
+ *   2. TIGHT MINIMAL VIEW — when EDITOR should only see a short allowlist
+ *      (e.g. Leads): enforceConfidentiality() / enforceConfidentialityArray().
+ *
+ * Rule of thumb: reveal-most-hide-money → stripConfidentialFields; show-only-a-few
+ * fields → enforceConfidentiality.
+ */
+
+/**
+ * Apply stripConfidentialFields to an array of items.
+ * No-op for OWNER/MANAGER.
+ */
+export function stripConfidentialFieldsArray<T extends Record<string, unknown>>(
+  data: T[],
+  userRole: Role,
+  options: { exclude?: string[]; includeMoneyFields?: boolean } = {}
+): T[] {
+  if (userRole === "OWNER" || userRole === "MANAGER") {
+    return data;
+  }
+  return data.map((item) => stripConfidentialFields(item, userRole, options));
+}
+
+/**
+ * Remove the `payout` relation from a task and all of its descendant subtasks.
+ * Centralizes the payout-stripping logic previously duplicated inline across
+ * project/task routes. No-op for OWNER/MANAGER.
+ */
+export function stripTaskPayout<T extends Record<string, unknown>>(
+  task: T,
+  userRole: Role
+): T {
+  if (userRole === "OWNER" || userRole === "MANAGER") {
+    return task;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const t = task as any;
+  t.payout = undefined;
+  if (Array.isArray(t.children)) {
+    t.children = t.children.map((child: Record<string, unknown>) =>
+      stripTaskPayout(child, userRole)
+    );
+  }
+  return task;
 }

@@ -13,6 +13,7 @@ import {
   requireUser,
   requireAction,
   canAccessBrand,
+  stripTaskPayout,
 } from "@/lib/authorize";
 
 export async function POST(
@@ -57,7 +58,7 @@ export async function POST(
     }
 
     // Check brand access
-    const brandId = project.order?.brandId;
+    const brandId = project.order?.brandId ?? project.brandId;
     if (brandId) {
       const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
@@ -161,7 +162,7 @@ export async function GET(
     }
 
     // Check brand access
-    const brandId = project.order?.brandId;
+    const brandId = project.order?.brandId ?? project.brandId;
     if (brandId) {
       const hasAccess = await canAccessBrand(brandId);
       if (!hasAccess) {
@@ -177,14 +178,8 @@ export async function GET(
           ...task,
           stageName: stage.name,
         };
-        // Apply confidentiality: strip payout info for EDITORs
-        if (user.role === "EDITOR") {
-          result.payout = undefined;
-          result.children = ((task.children as unknown as Array<Record<string, unknown>>) || []).map((child) => ({
-            ...child,
-            payout: undefined,
-          }));
-        }
+        // Apply confidentiality: strip payout for EDITOR/PRODUCER (centralized helper)
+        stripTaskPayout(result, user.role);
         return result;
       })
     );

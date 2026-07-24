@@ -14,6 +14,7 @@ import {
   requireUser,
   requireAction,
   canAccessBrand,
+  stripTaskPayout,
 } from "@/lib/authorize";
 
 export async function GET(
@@ -77,20 +78,17 @@ export async function GET(
       }
     }
 
-    // Apply confidentiality filtering for EDITORs
+    // Apply confidentiality filtering for EDITOR/PRODUCER:
+    // hide the whole order object + strip payout from every task (centralized helper).
     let safeProject = project;
-    if (user.role === "EDITOR") {
-      // For EDITORs, strip sensitive data
+    if (user.role !== "OWNER" && user.role !== "MANAGER") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const stripped = project as any;
       stripped.order = undefined;
       for (const stage of stripped.stages) {
-        for (const task of stage.tasks) {
-          task.payout = undefined;
-          for (const child of task.children || []) {
-            child.payout = undefined;
-          }
-        }
+        stage.tasks = stage.tasks.map((task: Record<string, unknown>) =>
+          stripTaskPayout(task, user.role)
+        );
       }
       safeProject = stripped;
     }
